@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0E1116" />
+<title>Case Maths Drill</title>
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icon-192.png" />
+<style>
+:root{
+  --ink:#0E1116; --surface:#161B22; --surface2:#1C232C; --line:#232A33;
+  --text:#E6E1D7; --muted:#8A93A0; --accent:#6FB3C0; --accent-dim:#2E4A52;
+  --ok:#6FB37A; --bad:#C8716A;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono","Roboto Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --r:14px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{
+  background:var(--ink); color:var(--text); font-family:var(--sans);
+  display:flex; justify-content:center;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+#app{width:100%; max-width:460px; min-height:100%; display:flex; flex-direction:column; position:relative}
+.screen{display:none; flex:1; flex-direction:column; padding:18px 16px 14px}
+.screen.active{display:flex}
+.eyebrow{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); font-weight:600}
+h1{font-size:20px; margin:2px 0 0; letter-spacing:-.01em; font-weight:650}
+.sub{color:var(--muted); font-size:13px; margin-top:6px; line-height:1.45}
+button{font-family:inherit; color:inherit; cursor:pointer; border:none; background:none}
+.block{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:14px}
+.row{display:flex; gap:8px}
+.label{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:9px}
+
+/* segmented + chips */
+.seg{display:flex; background:var(--ink); border:1px solid var(--line); border-radius:11px; padding:3px}
+.seg button{flex:1; padding:10px; border-radius:8px; font-size:14px; font-weight:600; color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line)}
+.chips{display:flex; flex-wrap:wrap; gap:8px}
+.chip{padding:9px 12px; border-radius:10px; border:1px solid var(--line); background:var(--ink); font-size:13px; color:var(--muted); font-weight:550}
+.chip[aria-pressed="true"]{border-color:var(--accent-dim); background:var(--accent-dim); color:var(--text)}
+.chip.shortcut{border-style:dashed; color:var(--accent)}
+.mini{font-size:12px; color:var(--muted)}
+.stepper{display:flex; align-items:center; gap:0; background:var(--ink); border:1px solid var(--line); border-radius:10px; overflow:hidden}
+.stepper button{padding:10px 14px; font-size:18px; font-weight:600; color:var(--accent)}
+.stepper .val{flex:1; text-align:center; font-family:var(--mono); font-size:15px; font-variant-numeric:tabular-nums}
+.stack>*+*{margin-top:12px}
+
+.primary{width:100%; padding:15px; border-radius:12px; background:var(--accent); color:#06181C; font-size:16px; font-weight:700; letter-spacing:.01em}
+.primary:active{transform:translateY(1px)}
+.ghost{padding:12px; border-radius:11px; border:1px solid var(--line); color:var(--text); font-weight:600; font-size:14px; background:var(--surface)}
+.linkbtn{color:var(--muted); font-size:13px; font-weight:600; text-decoration:underline; text-underline-offset:3px}
+
+/* drill */
+#screen-drill{padding-bottom:10px}
+.topbar{display:flex; align-items:center; justify-content:space-between}
+.progress{font-family:var(--mono); font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+.qcat{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:600}
+.stage{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:12px; padding:8px 0}
+.ringwrap{position:relative; width:130px; height:130px; display:flex; align-items:center; justify-content:center}
+.ringwrap svg{position:absolute; inset:0; transform:rotate(-90deg)}
+.ring-track{fill:none; stroke:var(--line); stroke-width:7}
+.ring-prog{fill:none; stroke:var(--accent); stroke-width:7; stroke-linecap:round; transition:stroke .2s}
+.clock{font-family:var(--mono); font-size:30px; font-weight:600; font-variant-numeric:tabular-nums}
+.clock small{font-size:13px; color:var(--muted)}
+.prompt{font-size:21px; line-height:1.3; font-weight:550; max-width:22ch; min-height:2.6em; display:flex; align-items:center}
+.answerline{font-family:var(--mono); font-size:30px; font-weight:600; letter-spacing:.01em; min-height:1.2em; font-variant-numeric:tabular-nums}
+.answerline .caret{color:var(--accent); animation:blink 1.05s steps(1) infinite}
+.answerline.empty{color:var(--muted)}
+.unit-hint{font-size:12px; color:var(--muted); margin-top:-6px}
+@keyframes blink{50%{opacity:0}}
+
+/* feedback */
+.feedback{display:none; text-align:center; gap:6px; flex-direction:column; align-items:center}
+.feedback.show{display:flex}
+.verdict{font-size:15px; font-weight:700; letter-spacing:.02em; text-transform:uppercase}
+.verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)}
+.correctval{font-family:var(--mono); font-size:24px; font-weight:600}
+.method{font-size:13px; color:var(--muted); font-family:var(--mono); max-width:30ch; line-height:1.5}
+
+/* keypad */
+.keypad{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px}
+.key{padding:0; height:58px; border-radius:12px; background:var(--surface); border:1px solid var(--line);
+  font-family:var(--mono); font-size:22px; font-weight:600; font-variant-numeric:tabular-nums}
+.key:active{background:var(--surface2)}
+.key.util{font-size:16px; color:var(--muted); font-family:var(--sans); font-weight:600}
+.actions{display:grid; grid-template-columns:1fr 1.4fr; gap:8px; margin-top:8px}
+.btn-end{padding:14px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-weight:600}
+.btn-submit{padding:14px; border-radius:12px; background:var(--accent); color:#06181C; font-weight:700; font-size:16px}
+.btn-submit:disabled{opacity:.4}
+.btn-next{padding:14px; border-radius:12px; background:var(--accent); color:#06181C; font-weight:700; font-size:16px; width:100%; margin-top:8px; display:none}
+.btn-next.show{display:block}
+
+/* results */
+.headline{display:flex; align-items:baseline; gap:10px}
+.bignum{font-family:var(--mono); font-size:40px; font-weight:650; font-variant-numeric:tabular-nums}
+.table{width:100%; border-collapse:collapse; font-size:13px}
+.table th{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-weight:600; text-align:right; padding:7px 6px; border-bottom:1px solid var(--line)}
+.table th:first-child{text-align:left}
+.table td{padding:9px 6px; border-bottom:1px solid var(--line); text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums}
+.table td:first-child{text-align:left; font-family:var(--sans); font-weight:550}
+.table tr.weak td{color:var(--bad)}
+.bar{height:5px; border-radius:3px; background:var(--line); overflow:hidden}
+.bar > i{display:block; height:100%; background:var(--accent)}
+.callout{border:1px solid var(--accent-dim); background:var(--accent-dim); border-radius:var(--r); padding:12px 14px; font-size:13px; line-height:1.5}
+.spark{display:flex; align-items:flex-end; gap:3px; height:40px}
+.spark i{flex:1; background:var(--accent-dim); border-radius:2px 2px 0 0; min-height:2px}
+.spark i.win{background:var(--accent)}
+.foot{margin-top:auto; padding-top:14px; display:flex; gap:8px}
+.foot .primary{flex:2} .foot .ghost{flex:1}
+.tiny{font-size:11px; color:var(--muted); text-align:center; margin-top:10px; line-height:1.5}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HOME -->
+  <section id="screen-home" class="screen active">
+    <div class="eyebrow">Case prep</div>
+    <h1>Case Maths Drill</h1>
+    <p class="sub">Short reps under time. Built for percentages, big-number arithmetic, growth, sizing and profit bridges.</p>
+
+    <div class="stack" style="margin-top:18px">
+      <div class="block">
+        <div class="label">Mode</div>
+        <div class="seg" id="mode-seg">
+          <button data-mode="timed" aria-pressed="true">Timed</button>
+          <button data-mode="untimed" aria-pressed="false">Untimed</button>
+        </div>
+        <div id="timed-row" style="margin-top:12px">
+          <div class="label">Seconds per question</div>
+          <div class="stepper">
+            <button id="sec-down" aria-label="Less time">\u2212</button>
+            <div class="val"><span id="sec-val">10</span>s</div>
+            <button id="sec-up" aria-label="More time">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="label">Categories</div>
+        <div class="chips" id="cat-chips"></div>
+        <div class="chips" style="margin-top:8px">
+          <button class="chip shortcut" id="focus-btn" aria-pressed="false">Structuring focus</button>
+        </div>
+      </div>
+
+      <div class="block">
+        <div class="label">Session length</div>
+        <div class="seg" id="len-seg">
+          <button data-len="20" aria-pressed="true">20</button>
+          <button data-len="50" aria-pressed="false">50</button>
+          <button data-len="0" aria-pressed="false">Endless</button>
+        </div>
+        <div style="margin-top:12px">
+          <div class="label">Marking</div>
+          <div class="seg" id="strict-seg">
+            <button data-s="0.5" aria-pressed="false">Strict</button>
+            <button data-s="1" aria-pressed="true">Standard</button>
+            <button data-s="2" aria-pressed="false">Lenient</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="primary" id="start-btn">Start drill</button>
+      <div style="text-align:center"><button class="linkbtn" id="to-stats">View stats</button></div>
+    </div>
+  </section>
+
+  <!-- DRILL -->
+  <section id="screen-drill" class="screen">
+    <div class="topbar">
+      <span class="progress" id="progress">1 / 20</span>
+      <span class="qcat" id="qcat">Percentages</span>
+    </div>
+
+    <div class="stage">
+      <div class="ringwrap">
+        <svg viewBox="0 0 130 130">
+          <circle class="ring-track" cx="65" cy="65" r="58"></circle>
+          <circle class="ring-prog" id="ring" cx="65" cy="65" r="58"></circle>
+        </svg>
+        <div class="clock" id="clock">10<small>s</small></div>
+      </div>
+
+      <div class="prompt" id="prompt">\u2014</div>
+      <div class="answerline empty" id="answerline">enter answer</div>
+      <div class="unit-hint" id="unit-hint"></div>
+
+      <div class="feedback" id="feedback">
+        <div class="verdict" id="verdict">Correct</div>
+        <div class="correctval" id="correctval"></div>
+        <div class="method" id="method"></div>
+      </div>
+    </div>
+
+    <div id="input-area">
+      <div class="keypad" id="keypad"></div>
+      <div class="actions">
+        <button class="btn-end" id="end-btn">End</button>
+        <button class="btn-submit" id="submit-btn" disabled>Submit</button>
+      </div>
+    </div>
+    <button class="btn-next" id="next-btn">Next</button>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="screen-results" class="screen">
+    <div class="eyebrow">Session complete</div>
+    <div class="headline" style="margin-top:4px">
+      <span class="bignum" id="r-acc">0%</span>
+      <span class="mini" id="r-sub">0 of 0 correct</span>
+    </div>
+
+    <div class="callout" id="weak-callout" style="margin-top:14px; display:none"></div>
+
+    <div class="block" style="margin-top:14px">
+      <div class="label">This session by category</div>
+      <table class="table" id="session-table"><tbody></tbody></table>
+    </div>
+
+    <div class="block" style="margin-top:12px">
+      <div class="label" id="alltime-label">All-time by category \u00b7 timed</div>
+      <table class="table" id="alltime-table"><tbody></tbody></table>
+    </div>
+
+    <div class="block" style="margin-top:12px">
+      <div class="label">Recent sessions</div>
+      <div class="spark" id="spark"></div>
+      <div class="mini" id="mode-split" style="margin-top:10px"></div>
+    </div>
+
+    <div class="foot">
+      <button class="primary" id="again-btn">Drill again</button>
+      <button class="ghost" id="home-btn">Home</button>
+    </div>
+    <div class="tiny"><button class="linkbtn" id="reset-btn">Reset all-time stats</button></div>
+  </section>
+
+</div>
+
+<script>
+"use strict";
+/* ---------- storage (safe in sandboxes) ---------- */
+const store = {
+  get(k, d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+const S_SETTINGS='cmd_settings_v1', S_ATT='cmd_attempts_v1', S_SESS='cmd_sessions_v1';
+
+/* ---------- logic (validated under node) ---------- */
+const CATS = {
+  pct:   {label:'Percentages',       short:'Percent', tol:{rel:0.005,abs:0.01}},
+  units: {label:'Big-number \u00d7\u00f7', short:'\u00d7\u00f7', tol:{rel:0.005,abs:0.01}},
+  cagr:  {label:'Growth & CAGR',     short:'CAGR',    tol:{rel:0.02,abs:0}},
+  sizing:{label:'Market sizing',     short:'Sizing',  tol:{rel:0.05,abs:0}},
+  profit:{label:'Profit & breakeven',short:'Profit',  tol:{rel:0.005,abs:0.01}},
+};
+const FOCUS=['sizing','profit'];
+const rnd=(min,max,step=1)=>{const n=Math.floor((max-min)/step)+1;return min+step*Math.floor(Math.random()*n);};
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const round=(x,dp=2)=>{const f=10**dp;return Math.round(x*f)/f;};
+const gbp=x=>'\u00a3'+x.toLocaleString('en-GB');
+const money=x=>{const a=Math.abs(x);
+  if(a>=1e9)return '\u00a3'+round(x/1e9,2)+'bn';
+  if(a>=1e6)return '\u00a3'+round(x/1e6,2)+'m';
+  if(a>=1e3)return '\u00a3'+round(x/1e3,1)+'k';
+  return gbp(x);};
+
+const GEN={
+  pct(){const k=pick(['of','inc','dec','whatpc','margin','growth']);
+    if(k==='of'){const p=pick([5,10,12,15,20,25,30,40,60,75]);const base=rnd(20,96,4)*100;const ans=base*p/100;
+      return{cat:'pct',prompt:`What is ${p}% of ${gbp(base)}?`,answer:ans,unit:'\u00a3',method:`${p}% \u00d7 ${gbp(base)} = ${gbp(ans)}`};}
+    if(k==='inc'||k==='dec'){const p=pick([5,10,15,20,25,40,50]);const base=rnd(10,90,5)*100;
+      const f=k==='inc'?1+p/100:1-p/100;const ans=round(base*f,2);
+      return{cat:'pct',prompt:`${gbp(base)} ${k==='inc'?'increased':'decreased'} by ${p}%?`,answer:ans,unit:'\u00a3',method:`${gbp(base)} \u00d7 ${f} = ${gbp(ans)}`};}
+    if(k==='whatpc'){const whole=rnd(10,40,2)*100;const p=pick([10,15,20,25,30,40,50,75]);const part=whole*p/100;
+      return{cat:'pct',prompt:`What % is ${gbp(part)} of ${gbp(whole)}?`,answer:p,unit:'%',method:`${part} / ${whole} = ${p}%`};}
+    if(k==='margin'){const rev=rnd(10,80,5)*100000;const mp=pick([8,10,12,15,20,25,30]);const profit=rev*mp/100;
+      return{cat:'pct',prompt:`Revenue ${money(rev)}, profit ${money(profit)}. Margin %?`,answer:mp,unit:'%',method:`${money(profit)} / ${money(rev)} = ${mp}%`};}
+    const old=rnd(10,50,5)*100;const gp=pick([10,20,25,40,50]);const nw=old*(1+gp/100);
+    return{cat:'pct',prompt:`Sales rose from ${gbp(old)} to ${gbp(nw)}. Growth %?`,answer:gp,unit:'%',method:`(${nw} \u2212 ${old}) / ${old} = ${gp}%`};},
+  units(){const k=pick(['rev','cpu','cancel']);
+    if(k==='rev'){const price=rnd(6,40,2);const volM=rnd(8,64,2)/10;const ans=round(price*volM,2);
+      return{cat:'units',prompt:`Price \u00a3${price}, volume ${volM}m units. Revenue? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`\u00a3${price} \u00d7 ${volM}m = \u00a3${ans}m`};}
+    if(k==='cpu'){const per=rnd(8,40,2);const volM=rnd(10,60,5)/10;const totalM=round(per*volM,2);
+      return{cat:'units',prompt:`Total cost \u00a3${totalM}m over ${volM}m units. Cost per unit? (\u00a3)`,answer:per,unit:'\u00a3',method:`\u00a3${totalM}m / ${volM}m = \u00a3${per}`};}
+    const ratio=pick([1500,2000,2500,3000,4000,5000]);const denomM=pick([1.2,1.5,2,2.5,4]);const numBn=round(ratio*denomM/1000,3);
+    return{cat:'units',prompt:`\u00a3${numBn}bn divided by \u00a3${denomM}m equals?`,answer:ratio,unit:'',method:`\u00a3${numBn}bn / \u00a3${denomM}m = ${ratio.toLocaleString('en-GB')}`};},
+  cagr(){const k=pick(['compound','reverse']);
+    if(k==='compound'){const start=rnd(50,200,10);const r=pick([5,8,10,12,15,20]);const yrs=rnd(2,5);const ans=round(start*(1+r/100)**yrs,2);
+      return{cat:'cagr',prompt:`\u00a3${start}m growing ${r}%/yr for ${yrs} years. Final value? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.02,abs:0},method:`${start} \u00d7 ${1+r/100}^${yrs} \u2248 \u00a3${ans}m`};}
+    const start=rnd(80,160,10);const r=pick([6,8,10,12,15]);const yrs=rnd(2,5);const end=round(start*(1+r/100)**yrs,0);const c=round(((end/start)**(1/yrs)-1)*100,2);
+    return{cat:'cagr',prompt:`\u00a3${start}m to \u00a3${end}m over ${yrs} years. Approx CAGR? (%)`,answer:c,unit:'%',tol:{abs:1.0,rel:0.02},method:`(${end}/${start})^(1/${yrs}) \u2212 1 \u2248 ${c}%`};},
+  sizing(){const t=pick(['consumer','b2b','replace']);
+    if(t==='consumer'){const popM=pick([50,55,60,67]);const pen=pick([20,25,30,40,50]);const freq=pick([1,2,3,4]);const price=rnd(5,30,1);const ans=round(popM*(pen/100)*freq*price,1);
+      return{cat:'sizing',prompt:`Population ${popM}m, ${pen}% buy, ${freq}\u00d7/yr at \u00a3${price}. Market size? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`${popM}m \u00d7 ${pen}% \u00d7 ${freq} \u00d7 \u00a3${price} \u2248 \u00a3${ans}m`};}
+    if(t==='b2b'){const firms=rnd(20,120,10)*1000;const adopt=pick([5,10,15,20]);const spend=rnd(2,20,1)*1000;const ans=round(firms*(adopt/100)*spend/1e6,1);
+      return{cat:'sizing',prompt:`${firms.toLocaleString('en-GB')} firms, ${adopt}% adopt, \u00a3${spend.toLocaleString('en-GB')}/yr each. Market? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`${firms.toLocaleString('en-GB')} \u00d7 ${adopt}% \u00d7 \u00a3${spend.toLocaleString('en-GB')} \u2248 \u00a3${ans}m`};}
+    const units=rnd(20,80,5);const life=pick([4,5,8,10]);const price=rnd(20,120,10);const ans=round(units/life*price,1);
+    return{cat:'sizing',prompt:`${units}m units installed, ${life}-yr life, \u00a3${price} each. Annual replacement market? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`${units}m / ${life} \u00d7 \u00a3${price} \u2248 \u00a3${ans}m`};},
+  profit(){const k=pick(['contribution','breakeven','bridge']);
+    if(k==='contribution'){const price=rnd(20,80,5);const vc=rnd(8,price-5,1);
+      return{cat:'profit',prompt:`Price \u00a3${price}, variable cost \u00a3${vc}. Contribution per unit? (\u00a3)`,answer:price-vc,unit:'\u00a3',method:`\u00a3${price} \u2212 \u00a3${vc} = \u00a3${price-vc}`};}
+    if(k==='breakeven'){const cont=rnd(5,40,5);const fixedK=rnd(20,200,20);const ans=round(fixedK*1000/cont,0);
+      return{cat:'profit',prompt:`Fixed cost \u00a3${fixedK}k, contribution \u00a3${cont}/unit. Breakeven units?`,answer:ans,unit:'units',method:`\u00a3${fixedK}k / \u00a3${cont} = ${ans.toLocaleString('en-GB')} units`};}
+    const rev=rnd(50,200,10);const cogs=rnd(20,rev-20,5);const opex=rnd(5,rev-cogs-5,5);const ans=rev-cogs-opex;
+    return{cat:'profit',prompt:`Revenue \u00a3${rev}m, COGS \u00a3${cogs}m, opex \u00a3${opex}m. Operating profit? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`${rev} \u2212 ${cogs} \u2212 ${opex} = \u00a3${ans}m`};},
+};
+function makeQuestion(cat){const q=GEN[cat]();if(!q.tol)q.tol=CATS[cat].tol;return q;}
+function isCorrect(answer,given,tol,mult){
+  if(!isFinite(given))return false;
+  const allowed=Math.max((tol.abs||0)*mult,(tol.rel||0)*mult*Math.abs(answer));
+  return Math.abs(given-answer)<=allowed+1e-9;
+}
+
+/* ---------- settings ---------- */
+const defaults={mode:'timed',seconds:10,len:20,strict:1,cats:Object.keys(CATS)};
+let cfg=Object.assign({},defaults,store.get(S_SETTINGS,{}));
+cfg.cats=cfg.cats.filter(c=>CATS[c]); if(!cfg.cats.length)cfg.cats=Object.keys(CATS);
+function saveCfg(){store.set(S_SETTINGS,cfg);}
+
+/* ---------- DOM ---------- */
+const $=id=>document.getElementById(id);
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');window.scrollTo(0,0);}
+
+/* build category chips */
+const chipsWrap=$('cat-chips');
+Object.entries(CATS).forEach(([id,c])=>{
+  const b=document.createElement('button');b.className='chip';b.dataset.cat=id;b.textContent=c.label;
+  b.setAttribute('aria-pressed', cfg.cats.includes(id));
+  b.onclick=()=>{
+    const on=b.getAttribute('aria-pressed')==='true';
+    if(on && cfg.cats.length===1)return; // keep at least one
+    b.setAttribute('aria-pressed',!on);
+    cfg.cats = [...chipsWrap.querySelectorAll('.chip[aria-pressed="true"]')].map(x=>x.dataset.cat);
+    $('focus-btn').setAttribute('aria-pressed', sameSet(cfg.cats,FOCUS));
+    saveCfg();
+  };
+  chipsWrap.appendChild(b);
+});
+function sameSet(a,b){return a.length===b.length && a.every(x=>b.includes(x));}
+$('focus-btn').setAttribute('aria-pressed', sameSet(cfg.cats,FOCUS));
+$('focus-btn').onclick=()=>{
+  cfg.cats=[...FOCUS];saveCfg();
+  chipsWrap.querySelectorAll('.chip').forEach(b=>b.setAttribute('aria-pressed',FOCUS.includes(b.dataset.cat)));
+  $('focus-btn').setAttribute('aria-pressed',true);
+};
+
+/* mode / length / strict segmented */
+function bindSeg(segId,apply){const seg=$(segId);seg.querySelectorAll('button').forEach(b=>{b.onclick=()=>{
+  seg.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));apply(b);saveCfg();};});}
+bindSeg('mode-seg',b=>{cfg.mode=b.dataset.mode;$('timed-row').style.display=cfg.mode==='timed'?'':'none';});
+bindSeg('len-seg',b=>{cfg.len=+b.dataset.len;});
+bindSeg('strict-seg',b=>{cfg.strict=+b.dataset.s;});
+function reflectCfg(){
+  $('mode-seg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===cfg.mode));
+  $('len-seg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.len===cfg.len));
+  $('strict-seg').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.s===cfg.strict));
+  $('timed-row').style.display=cfg.mode==='timed'?'':'none';
+  $('sec-val').textContent=cfg.seconds;
+}
+$('sec-up').onclick=()=>{cfg.seconds=Math.min(20,cfg.seconds+1);$('sec-val').textContent=cfg.seconds;saveCfg();};
+$('sec-down').onclick=()=>{cfg.seconds=Math.max(5,cfg.seconds-1);$('sec-val').textContent=cfg.seconds;saveCfg();};
+reflectCfg();
+
+/* keypad: 7 8 9 / 4 5 6 / 1 2 3 / . 0 backspace */
+(function(){
+  const kp=document.getElementById('keypad');kp.innerHTML='';
+  const layout=['7','8','9','4','5','6','1','2','3','.','0','\u232b'];
+  layout.forEach(k=>{const b=document.createElement('button');
+    b.className='key'+(k==='.'||k==='\u232b'?' util':'');
+    b.textContent=k; b.setAttribute('aria-label',k==='\u232b'?'Backspace':k==='.'?'Decimal point':k);
+    b.onclick=()=>press(k==='\u232b'?'back':k); kp.appendChild(b);});
+})();
+</script>
+<script>
+"use strict";
+/* ---------- drill engine ---------- */
+let session=null, raf=null;
+const ringEl=document.getElementById('ring');
+const C=2*Math.PI*58; ringEl.style.strokeDasharray=C;
+const reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+let entry='';
+function press(k){
+  if(session&&session.locked)return;
+  if(k==='back'){entry=entry.slice(0,-1);}
+  else if(k==='\u00b1'){entry=entry.startsWith('-')?entry.slice(1):'-'+entry;}
+  else if(k==='.'){ if(!entry.includes('.')) entry+= (entry===''||entry==='-')?'0.':'.'; }
+  else { if(entry==='0')entry=k; else entry+=k; }
+  renderEntry();
+}
+// allow physical keyboard too
+window.addEventListener('keydown',e=>{
+  if(!document.getElementById('screen-drill').classList.contains('active'))return;
+  if(e.key>='0'&&e.key<='9')press(e.key);
+  else if(e.key==='.')press('.');
+  else if(e.key==='-')press('\u00b1');
+  else if(e.key==='Backspace')press('back');
+  else if(e.key==='Enter'){ session&&session.locked?next():submit(); }
+});
+function renderEntry(){
+  const el=document.getElementById('answerline');
+  if(entry===''||entry==='-'){el.classList.add('empty');el.textContent='enter answer';}
+  else{el.classList.remove('empty');el.textContent=entry;}
+  document.getElementById('submit-btn').disabled = (entry===''||entry==='-'||entry==='-0.');
+}
+
+function startSession(){
+  session={mode:cfg.mode,len:cfg.len,strict:cfg.strict,i:0,correct:0,attempts:[],pool:cfg.cats.slice()};
+  show('screen-drill');nextQuestion();
+}
+function nextQuestion(){
+  session.locked=false;entry='';
+  document.getElementById('feedback').classList.remove('show');
+  document.getElementById('input-area').style.display='';
+  document.getElementById('next-btn').classList.remove('show');
+  const cat=pick(session.pool);
+  session.q=makeQuestion(cat);
+  session.tStart=performance.now();
+  document.getElementById('prompt').textContent=session.q.prompt;
+  document.getElementById('qcat').textContent=CATS[cat].label;
+  document.getElementById('unit-hint').textContent=session.q.unit?('answer in '+(session.q.unit==='units'?'units':session.q.unit)):'';
+  const total=session.len===0?'\u221e':session.len;
+  document.getElementById('progress').textContent=`${session.i+1} / ${total}`;
+  renderEntry();
+  if(session.mode==='timed'){startTimer();}
+  else{ringEl.style.strokeDashoffset=0;ringEl.style.opacity=.25;document.getElementById('clock').innerHTML='\u221e';}
+}
+function startTimer(){
+  ringEl.style.opacity=1;
+  const dur=cfg.seconds*1000, t0=performance.now();
+  cancelAnimationFrame(raf);
+  const tick=()=>{
+    const el=performance.now()-t0, frac=Math.min(1,el/dur), left=Math.max(0,cfg.seconds-el/1000);
+    ringEl.style.strokeDashoffset = reduceMotion ? (Math.ceil(frac*10)/10)*C : frac*C;
+    document.getElementById('clock').innerHTML=Math.ceil(left)+'<small>s</small>';
+    if(el>=dur){timeUp();return;}
+    raf=requestAnimationFrame(tick);
+  };
+  raf=requestAnimationFrame(tick);
+}
+function timeUp(){
+  if(session.locked)return;
+  cancelAnimationFrame(raf);
+  const given=parseEntry();
+  const wouldBe=isFinite(given)&&isCorrect(session.q.answer,given,session.q.tol,session.strict);
+  recordAndShow(false,'time',wouldBe);
+}
+function parseEntry(){const v=parseFloat(entry.replace(/[^0-9.\-]/g,''));return v;}
+function submit(){
+  if(session.locked)return;
+  if(session.mode==='timed')cancelAnimationFrame(raf);
+  const given=parseEntry();
+  const ok=isCorrect(session.q.answer,given,session.q.tol,session.strict);
+  recordAndShow(ok,'answer',ok);
+}
+function recordAndShow(ok,reason,wouldBe){
+  session.locked=true;
+  const ms=Math.round(performance.now()-session.tStart);
+  session.attempts.push({c:session.q.cat,mode:session.mode,ok,ms});
+  if(ok)session.correct++;
+  // feedback
+  const fb=document.getElementById('feedback');
+  const v=document.getElementById('verdict');
+  v.className='verdict '+(ok?'ok':'bad');
+  v.textContent = reason==='time' ? 'Time' : (ok?'Correct':'Not quite');
+  const ansStr=formatAnswer(session.q);
+  document.getElementById('correctval').textContent=ansStr;
+  let m=session.q.method;
+  if(reason==='time' && isFinite(parseEntry())) m += ` \u00b7 your ${entry} would ${wouldBe?'have counted':'have missed'}`;
+  document.getElementById('method').textContent=m;
+  document.getElementById('input-area').style.display='none';
+  fb.classList.add('show');
+  document.getElementById('next-btn').classList.add('show');
+  if(session.mode==='timed'){ringEl.style.strokeDashoffset=ok?0:C;document.getElementById('clock').innerHTML=ok?'\u2713':'\u2014';}
+}
+function formatAnswer(q){
+  const a=q.answer;
+  if(q.unit==='%')return a+'%';
+  if(q.unit==='\u00a3m')return '\u00a3'+a+'m';
+  if(q.unit==='\u00a3')return gbp(a);
+  if(q.unit==='units')return a.toLocaleString('en-GB')+' units';
+  return a.toLocaleString('en-GB');
+}
+function next(){
+  session.i++;
+  if(session.len!==0 && session.i>=session.len){endSession();return;}
+  nextQuestion();
+}
+function endSession(){
+  cancelAnimationFrame(raf);
+  if(session.attempts.length){persistSession();}
+  renderResults();
+  show('screen-results');
+}
+document.getElementById('start-btn').onclick=startSession;
+document.getElementById('again-btn').onclick=startSession;
+document.getElementById('home-btn').onclick=()=>show('screen-home');
+document.getElementById('to-stats').onclick=()=>{renderResults(true);show('screen-results');};
+document.getElementById('submit-btn').onclick=submit;
+document.getElementById('next-btn').onclick=next;
+document.getElementById('end-btn').onclick=endSession;
+document.getElementById('reset-btn').onclick=()=>{store.set(S_ATT,[]);store.set(S_SESS,[]);renderResults(true);};
+
+/* ---------- persistence + stats ---------- */
+function persistSession(){
+  const att=store.get(S_ATT,[]);
+  session.attempts.forEach(a=>att.push(Object.assign({ts:Date.now()},a)));
+  store.set(S_ATT, att.slice(-5000));
+  const byCat={};session.attempts.forEach(a=>{(byCat[a.c]=byCat[a.c]||[0,0]),byCat[a.c][1]++;if(a.ok)byCat[a.c][0]++;});
+  const sess=store.get(S_SESS,[]);
+  sess.push({ts:Date.now(),mode:session.mode,n:session.attempts.length,correct:session.correct});
+  store.set(S_SESS, sess.slice(-200));
+}
+function agg(attempts){
+  const by={};attempts.forEach(a=>{const o=by[a.c]=by[a.c]||{n:0,ok:0,ms:0};o.n++;o.ms+=a.ms;if(a.ok)o.ok++;});
+  return by;
+}
+function rowsHtml(by){
+  return Object.keys(CATS).filter(c=>by[c]).map(c=>{
+    const o=by[c],acc=Math.round(o.ok/o.n*100),avg=(o.ms/o.n/1000).toFixed(1);
+    return `<tr data-c="${c}"><td>${CATS[c].label}</td><td>${acc}%</td><td>${avg}s</td><td>${o.n}</td></tr>`;
+  }).join('');
+}
+function head(){return '<tr><th>Category</th><th>Acc</th><th>Avg</th><th>n</th></tr>';}
+function weakest(by){
+  let worst=null;
+  Object.keys(by).forEach(c=>{const o=by[c];if(o.n<3)return;const acc=o.ok/o.n,avg=o.ms/o.n;
+    if(!worst||acc<worst.acc-1e-9||(Math.abs(acc-worst.acc)<1e-9&&avg>worst.avg)){worst={c,acc,avg};}});
+  return worst;
+}
+function renderResults(statsOnly){
+  const total=session?session.attempts.length:0, correct=session?session.correct:0;
+  if(statsOnly||!session){
+    document.querySelector('#screen-results .eyebrow').textContent='Your stats';
+    document.getElementById('r-acc').textContent='\u2014';
+    document.getElementById('r-sub').textContent='all-time below';
+    document.getElementById('session-table').innerHTML='';
+    document.querySelector('#screen-results .block .label').textContent='This session';
+  }else{
+    document.querySelector('#screen-results .eyebrow').textContent='Session complete';
+    const acc=total?Math.round(correct/total*100):0;
+    document.getElementById('r-acc').textContent=acc+'%';
+    document.getElementById('r-sub').textContent=`${correct} of ${total} correct \u00b7 ${session.mode}`;
+    const by=agg(session.attempts);
+    document.getElementById('session-table').innerHTML=head()+rowsHtml(by);
+    const w=weakest(by);const callout=document.getElementById('weak-callout');
+    if(w&&w.acc<1-1e-9){callout.style.display='';callout.innerHTML=`Weakest this session: <b>${CATS[w.c].label}</b> at ${Math.round(w.acc*100)}%. Drill it next, and pair it with the matching RocketBlocks or Road to Offer set.`;}
+    else callout.style.display='none';
+  }
+  // all-time, split by mode (default timed if available else untimed)
+  const att=store.get(S_ATT,[]);
+  const timed=att.filter(a=>a.mode==='timed'), untimed=att.filter(a=>a.mode==='untimed');
+  const useMode = (session&&session.mode==='untimed' && untimed.length) ? 'untimed' : (timed.length?'timed':'untimed');
+  const byAll=agg(att.filter(a=>a.mode===useMode));
+  document.getElementById('alltime-label').textContent=`All-time by category \u00b7 ${useMode}`;
+  const at=document.getElementById('alltime-table');
+  at.innerHTML = Object.keys(byAll).length ? head()+rowsHtml(byAll) : '<tr><td class="mini">No attempts yet.</td></tr>';
+  const w2=weakest(byAll);
+  if(w2&&w2.acc<1-1e-9){at.querySelectorAll('tr').forEach(tr=>{if(tr.dataset.c===w2.c)tr.classList.add('weak');});}
+  // spark of recent sessions
+  const sess=store.get(S_SESS,[]).slice(-24);
+  const sp=document.getElementById('spark');
+  sp.innerHTML = sess.length ? sess.map(s=>{const a=s.n?s.correct/s.n:0;const h=Math.max(6,Math.round(a*100));return `<i class="${a>=0.7?'win':''}" style="height:${h}%" title="${Math.round(a*100)}%"></i>`;}).join('') : '<span class="mini">No sessions yet.</span>';
+  // mode split
+  const tAcc=timed.length?Math.round(timed.filter(a=>a.ok).length/timed.length*100):null;
+  const uAcc=untimed.length?Math.round(untimed.filter(a=>a.ok).length/untimed.length*100):null;
+  document.getElementById('mode-split').textContent=
+    `Timed ${tAcc===null?'\u2014':tAcc+'%'} \u00b7 Untimed ${uAcc===null?'\u2014':uAcc+'%'} (${att.length} answers logged)`;
+}
+
+/* ---------- service worker ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{});});
+}
+</script>
+</body>
+</html>
