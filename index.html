@@ -58,6 +58,7 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
 .topbar{display:flex; align-items:center; justify-content:space-between}
 .progress{font-family:var(--mono); font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
 .qcat{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:600}
+.streakbadge{font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent); background:var(--accent-dim); padding:2px 9px; border-radius:8px; letter-spacing:.02em; font-variant-numeric:tabular-nums}
 .stage{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:12px; padding:8px 0}
 .ringwrap{position:relative; width:130px; height:130px; display:flex; align-items:center; justify-content:center}
 .ringwrap svg{position:absolute; inset:0; transform:rotate(-90deg)}
@@ -159,7 +160,7 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
   <section id="screen-home" class="screen active">
     <div class="eyebrow">Case prep</div>
     <h1>Case Maths Drill</h1>
-    <p class="sub">Short reps under time. Built for percentages, big-number arithmetic, growth, sizing and profit bridges.</p>
+    <p class="sub">Short reps under time. Percentages every which way, big-number multiplication, growth, sizing, profit bridges and returns.</p>
 
     <div class="stack" style="margin-top:18px">
       <div class="block">
@@ -220,6 +221,7 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
   <section id="screen-drill" class="screen">
     <div class="topbar">
       <span class="progress" id="progress">1 / 20</span>
+      <span class="streakbadge" id="streak" style="display:none"></span>
       <span class="qcat" id="qcat">Percentages</span>
     </div>
 
@@ -312,6 +314,7 @@ const CATS = {
   cagr:  {label:'Growth & CAGR',     short:'CAGR',    tol:{rel:0.02,abs:0}},
   sizing:{label:'Market sizing',     short:'Sizing',  tol:{rel:0.05,abs:0}},
   profit:{label:'Profit & breakeven',short:'Profit',  tol:{rel:0.005,abs:0.01}},
+  roi:   {label:'Returns & ratios',  short:'Returns', tol:{rel:0.02,abs:0}},
   structuring:{label:'Structuring',  short:'Struct',  tol:{rel:0,abs:0}},
 };
 const FOCUS=['sizing','profit'];
@@ -330,8 +333,8 @@ const D=d=>d==='easy'?0:(d==='hard'?2:1);
 const GEN={
   pct(difficulty){const lvl=D(difficulty);
     const pool = lvl===0 ? ['of','inc','dec']
-      : lvl===1 ? ['of','inc','dec','whatpc','margin','growth','exhibit']
-      : ['of','inc','dec','whatpc','margin','growth','successive','reverse','ppt','partpart','exhibit'];
+      : lvl===1 ? ['of','inc','dec','whatpc','margin','growth','exhibit','markup','grossup','morethan']
+      : ['of','inc','dec','whatpc','margin','growth','successive','reverse','ppt','partpart','exhibit','markup','grossup','offset','morethan','blended'];
     const k=pick(pool);
     if(k==='exhibit'){
       const yearsCount=4;const base=rnd(20,80,5)*10;const vals=[base];
@@ -373,10 +376,27 @@ const GEN={
       return{cat:'pct',prompt:`After a ${p}% ${dir==='inc'?'increase':'decrease'}, a value is ${gbp(after)}. What was the original value?`,answer:ans,unit:'\u00a3',method:`${gbp(after)} / ${f} = ${gbp(ans)}`};}
     if(k==='ppt'){const a=pick([8,10,15,20,25,30,35,40]);const b=a+pick([3,5,8,10,12]);
       return{cat:'pct',prompt:`Market share moved from ${a}% to ${b}%. Change in percentage points?`,answer:b-a,unit:'ppt',method:`${b}% \u2212 ${a}% = ${b-a} percentage points \u2014 not the same as a ${round((b-a)/a*100,1)}% relative rise`};}
+    if(k==='markup'){const cost=rnd(20,80,5);const m=pick([20,25,30,40,50,60,75,100]);const price=round(cost*(1+m/100),2);
+      return{cat:'pct',prompt:`Cost \u00a3${cost}, sold at a ${m}% markup on cost. Selling price? (\u00a3)`,answer:price,unit:'\u00a3',method:`\u00a3${cost} \u00d7 (1 + ${m}%) = ${gbp(price)}`,
+        eq:{correct:`\u00a3${cost} \u00d7 (1 + ${m}%)`,distractors:[`\u00a3${cost} \u00d7 (1 \u2212 ${m}%)`,`\u00a3${cost} \u00f7 (1 \u2212 ${m}%)`,`\u00a3${cost} \u00d7 ${m}%`]}};}
+    if(k==='grossup'){const profit=rnd(4,30);const m=pick([5,8,10,12,15,20,25]);const ans=round(profit/(m/100),1);
+      return{cat:'pct',prompt:`A business earns \u00a3${profit}m profit at a ${m}% net margin. Revenue? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.01,abs:0.05},method:`\u00a3${profit}m \u00f7 ${m}% = \u00a3${ans}m`,
+        eq:{correct:`\u00a3${profit}m \u00f7 ${m}%`,distractors:[`\u00a3${profit}m \u00d7 ${m}%`,`\u00a3${profit}m \u00f7 (1 \u2212 ${m}%)`,`\u00a3${profit}m \u00d7 (1 + ${m}%)`]}};}
+    if(k==='offset'){const p=pick([5,10,15,20,25,50]);const dir=pick(['pricecut','volfall']);const ans=round((1/(1-p/100)-1)*100,1);
+      const prompt=dir==='pricecut'?`Price is cut ${p}%. By what % must volume rise to keep revenue flat?`:`Volume falls ${p}%. By what % must price rise to hold revenue flat?`;
+      return{cat:'pct',prompt,answer:ans,unit:'%',tol:{rel:0.01,abs:0.3},method:`1 \u00f7 (1 \u2212 ${p}%) \u2212 1 = ${ans}% (a ${p}% drop needs a bigger % to offset)`};}
+    if(k==='morethan'){let a=rnd(12,90)*10,b=rnd(12,90)*10;if(a===b)b+=10;const hi=Math.max(a,b),lo=Math.min(a,b);const dir=pick(['bigger','smaller']);
+      if(dir==='bigger'){const ans=round((hi-lo)/lo*100,1);
+        return{cat:'pct',prompt:`\u00a3${hi}m vs \u00a3${lo}m. The larger is what % bigger than the smaller?`,answer:ans,unit:'%',tol:{rel:0.01,abs:0.2},method:`(${hi} \u2212 ${lo}) / ${lo} = ${ans}%`};}
+      const ans=round((hi-lo)/hi*100,1);
+      return{cat:'pct',prompt:`\u00a3${hi}m vs \u00a3${lo}m. The smaller is what % less than the larger?`,answer:ans,unit:'%',tol:{rel:0.01,abs:0.2},method:`(${hi} \u2212 ${lo}) / ${hi} = ${ans}% (note: not the same as the other direction)`};}
+    if(k==='blended'){const w=pick([20,25,30,40,50,60,70,75]);const m1=pick([10,15,20,25,30,40]);let m2=pick([10,15,20,25,30,40]);if(m2===m1)m2=m1+5;
+      const ans=round((w*m1+(100-w)*m2)/100,1);
+      return{cat:'pct',prompt:`Segment A is ${w}% of sales at ${m1}% margin; the rest at ${m2}% margin. Blended margin? (%)`,answer:ans,unit:'%',tol:{rel:0.01,abs:0.2},method:`${w}%\u00d7${m1}% + ${100-w}%\u00d7${m2}% = ${ans}%`};}
     const base=rnd(20,96,4)*100;const p1=pick([10,20,25,40,50,60,75]),p2=pick([10,20,25,40,50,60,75]);const ans=round(base*(p1/100)*(p2/100),2);
     return{cat:'pct',prompt:`What is ${p1}% of ${p2}% of ${gbp(base)}?`,answer:ans,unit:'\u00a3',method:`${gbp(base)} \u00d7 ${p1}% \u00d7 ${p2}% = ${gbp(ans)}`};},
   units(difficulty){const lvl=D(difficulty);
-    const pool = lvl===0 ? ['rev','cpu'] : lvl===1 ? ['rev','cpu','cancel'] : ['rev','cpu','cancel','delta'];
+    const pool = lvl===0 ? ['rev','cpu'] : lvl===1 ? ['rev','cpu','cancel','bigmult'] : ['rev','cpu','cancel','delta','bigmult','bigdiv','decomp'];
     const k=pick(pool);
     if(k==='rev'){const price=rnd(6,40,2);const volM=rnd(8,64,2)/10;const ans=round(price*volM,2);
       let prompt=`Price \u00a3${price}, volume ${volM}m units. Revenue? (\u00a3m)`;
@@ -393,6 +413,15 @@ const GEN={
         eq:{correct:`\u00a3${totalM}m \u00f7 ${volM}m`,distractors:[`${volM}m \u00f7 \u00a3${totalM}m`,`\u00a3${totalM}m \u00d7 ${volM}m`,`\u00a3${totalM}m \u2212 ${volM}m`]}};}
     if(k==='cancel'){const ratio=pick([1500,2000,2500,3000,4000,5000]);const denomM=pick([1.2,1.5,2,2.5,4]);const numBn=round(ratio*denomM/1000,3);
       return{cat:'units',prompt:`\u00a3${numBn}bn divided by \u00a3${denomM}m equals?`,answer:ratio,unit:'',method:`\u00a3${numBn}bn / \u00a3${denomM}m = ${ratio.toLocaleString('en-GB')}`};}
+    if(k==='bigmult'){const a=lvl===2?rnd(120,890):rnd(30,99);const b=lvl===2?rnd(15,95):rnd(11,49);const ans=a*b;
+      return{cat:'units',prompt:`${a.toLocaleString('en-GB')} units at \u00a3${b} each. Total revenue? (\u00a3)`,answer:ans,unit:'\u00a3',method:`${a.toLocaleString('en-GB')} \u00d7 \u00a3${b} = ${gbp(ans)}`,
+        eq:{correct:`${a.toLocaleString('en-GB')} \u00d7 \u00a3${b}`,distractors:[`${a.toLocaleString('en-GB')} + \u00a3${b}`,`${a.toLocaleString('en-GB')} \u00f7 \u00a3${b}`,`\u00a3${b} \u00f7 ${a.toLocaleString('en-GB')}`]}};}
+    if(k==='bigdiv'){const n=pick([4,5,6,8]);const eachM=rnd(20,160,5);const totBn=round(n*eachM/1000,3);
+      return{cat:'units',prompt:`\u00a3${totBn}bn split equally across ${n} regions. Each region? (\u00a3m)`,answer:eachM,unit:'\u00a3m',method:`\u00a3${totBn}bn \u00f7 ${n} = \u00a3${eachM}m`,
+        eq:{correct:`\u00a3${totBn}bn \u00f7 ${n}`,distractors:[`\u00a3${totBn}bn \u00d7 ${n}`,`${n} \u00f7 \u00a3${totBn}bn`,`\u00a3${totBn}bn \u00f7 ${n}m`]}};}
+    if(k==='decomp'){const stores=rnd(200,2000,100);const wk=rnd(5,50,5);const ans=round(stores*wk*52/1000,1);
+      return{cat:'units',prompt:`${stores.toLocaleString('en-GB')} stores, each \u00a3${wk}k revenue/week. Annual revenue? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`${stores.toLocaleString('en-GB')} \u00d7 \u00a3${wk}k \u00d7 52 wks = \u00a3${ans}m`,
+        eq:{correct:`${stores.toLocaleString('en-GB')} \u00d7 \u00a3${wk}k \u00d7 52`,distractors:[`${stores.toLocaleString('en-GB')} \u00d7 \u00a3${wk}k`,`${stores.toLocaleString('en-GB')} \u00d7 \u00a3${wk}k \u00d7 12`,`${stores.toLocaleString('en-GB')} + \u00a3${wk}k \u00d7 52`]}};}
     const price=rnd(6,40,2);const vol1=rnd(8,50,2)/10;const g=pick([10,15,20,25,30]);const vol2=round(vol1*(1+g/100),2);
     const rev1=round(price*vol1,2);const rev2=round(price*vol2,2);const ans=round(rev2-rev1,2);
     return{cat:'units',prompt:`Price \u00a3${price}, volume grows ${g}% from ${vol1}m to ${vol2}m units. Revenue increase? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`\u00a3${price}\u00d7${vol2}m \u2212 \u00a3${price}\u00d7${vol1}m = \u00a3${ans}m`};},
@@ -475,6 +504,20 @@ const GEN={
     const rev=rnd(50,200,10);const g=pick([5,10,15,20]);const cogsPct=pick([30,35,40,45,50]);const opex=rnd(5,40,5);
     const newRev=round(rev*(1+g/100),2);const cogs=round(newRev*cogsPct/100,2);const ans=round(newRev-cogs-opex,2);
     return{cat:'profit',prompt:`Revenue \u00a3${rev}m grows ${g}%. COGS stays ${cogsPct}% of revenue, opex fixed \u00a3${opex}m. New operating profit? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`\u00a3${rev}m\u00d7${1+g/100}=\u00a3${newRev}m; \u2212${cogsPct}% COGS (\u00a3${cogs}m) \u2212 \u00a3${opex}m opex = \u00a3${ans}m`};},
+  roi(difficulty){const lvl=D(difficulty);
+    const pool = lvl===0 ? ['payback','roi'] : lvl===1 ? ['payback','roi','multiple'] : ['payback','roi','multiple','perday'];
+    const k=pick(pool);
+    if(k==='payback'){const inv=rnd(20,120,5);const cf=pick([4,5,8,10,12,15]);const ans=round(inv/cf,2);
+      return{cat:'roi',prompt:`Invest £${inv}m upfront, £${cf}m cash flow per year. Payback period? (years)`,answer:ans,unit:'yrs',tol:{rel:0.02,abs:0.05},method:`£${inv}m ÷ £${cf}m = ${ans} years`,
+        eq:{correct:`£${inv}m ÷ £${cf}m`,distractors:[`£${cf}m ÷ £${inv}m`,`£${inv}m × £${cf}m`,`£${inv}m − £${cf}m`]}};}
+    if(k==='roi'){const inv=rnd(20,100,5)*10;const gain=pick([15,20,25,30,40,50,60,75,100]);const ret=round(inv*(1+gain/100),0);
+      return{cat:'roi',prompt:`Invest £${inv.toLocaleString('en-GB')}k, total return £${ret.toLocaleString('en-GB')}k. ROI %?`,answer:gain,unit:'%',tol:{rel:0.02,abs:0.5},method:`(${ret.toLocaleString('en-GB')} − ${inv.toLocaleString('en-GB')}) / ${inv.toLocaleString('en-GB')} = ${gain}%`,
+        eq:{correct:`(return − invested) ÷ invested`,distractors:[`return ÷ invested`,`invested ÷ return`,`(return − invested) ÷ return`]}};}
+    if(k==='multiple'){const inv=rnd(20,100,5);const mult=pick([1.5,2,2.5,3,4,5]);const ret=round(inv*mult,1);
+      return{cat:'roi',prompt:`£${ret}m returned on £${inv}m invested. Money multiple? (×)`,answer:mult,unit:'x',tol:{rel:0.02,abs:0.05},method:`£${ret}m ÷ £${inv}m = ${mult}×`,
+        eq:{correct:`£${ret}m ÷ £${inv}m`,distractors:[`£${inv}m ÷ £${ret}m`,`£${ret}m − £${inv}m`,`£${ret}m × £${inv}m`]}};}
+    const ann=rnd(20,200,5);const ans=round(ann*1000/365,1);
+    return{cat:'roi',prompt:`£${ann}m annual revenue spread evenly over 365 days. Revenue per day? (£k)`,answer:ans,unit:'£k',tol:{rel:0.02,abs:0.5},method:`£${ann}m ÷ 365 = £${ans}k/day`};},
   structuring(difficulty){
     const k=pick(['lever','framework','synth']);
     if(k==='lever'){
@@ -540,7 +583,14 @@ function isCorrect(answer,given,tol,mult){
 const defaults={mode:'timed',seconds:10,len:20,strict:1,difficulty:'standard',cats:Object.keys(CATS)};
 let cfg=Object.assign({},defaults,store.get(S_SETTINGS,{}));
 cfg.cats=cfg.cats.filter(c=>CATS[c]); if(!cfg.cats.length)cfg.cats=Object.keys(CATS);
+/* auto-enable brand-new categories added since the user last opened the app, without
+   re-enabling any they deliberately turned off. Legacy users (no `known`) are seeded with
+   the pre-Returns set so only genuinely-new categories get switched on. */
+const prevKnown = cfg.known || Object.keys(CATS).filter(c=>c!=='roi');
+Object.keys(CATS).forEach(c=>{ if(!prevKnown.includes(c) && !cfg.cats.includes(c)) cfg.cats.push(c); });
+cfg.known = Object.keys(CATS);
 function saveCfg(){store.set(S_SETTINGS,cfg);}
+saveCfg();
 
 /* ---------- DOM ---------- */
 const $=id=>document.getElementById(id);
@@ -606,7 +656,7 @@ const ringEl=document.getElementById('ring');
 const C=2*Math.PI*58; ringEl.style.strokeDasharray=C;
 const reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-const UNIT_HINT={units:'units',ppt:'percentage points',yrs:'years'};
+const UNIT_HINT={units:'units',ppt:'percentage points',yrs:'years',x:'a multiple, e.g. 2.5','£k':'£k','£m':'£m'};
 let entry='';
 function currentStage(){return session.q.stages[session.stageIdx];}
 function press(k){
@@ -642,8 +692,14 @@ function renderEntry(){
 }
 
 function startSession(){
-  session={mode:cfg.mode,len:cfg.len,strict:cfg.strict,i:0,correct:0,attempts:[],pool:cfg.cats.slice()};
+  session={mode:cfg.mode,len:cfg.len,strict:cfg.strict,i:0,correct:0,streak:0,bestStreak:0,attempts:[],pool:cfg.cats.slice()};
+  renderStreak();
   show('screen-drill');nextQuestion();
+}
+function renderStreak(){
+  const el=document.getElementById('streak');
+  if(session && session.streak>=2){el.style.display='';el.textContent=session.streak+' in a row';}
+  else{el.style.display='none';}
 }
 function nextQuestion(){
   const cat=pick(session.pool);
@@ -771,7 +827,9 @@ function recordAndShow(ok,reason,wouldBe){
   const st=currentStage();
   const ms=Math.round(performance.now()-session.tStart);
   session.attempts.push({c:session.q.cat,mode:session.mode,ok,ms,kind:st.kind});
-  if(ok)session.correct++;
+  if(ok){session.correct++;session.streak++;if(session.streak>session.bestStreak)session.bestStreak=session.streak;}
+  else session.streak=0;
+  renderStreak();
   // feedback
   const fb=document.getElementById('feedback');
   const v=document.getElementById('verdict');
@@ -803,7 +861,9 @@ function formatAnswer(q){
   if(q.unit==='%')return a+'%';
   if(q.unit==='ppt')return a+'pp';
   if(q.unit==='yrs')return a+' yrs';
+  if(q.unit==='x')return a+'\u00d7';
   if(q.unit==='\u00a3m')return '\u00a3'+a+'m';
+  if(q.unit==='\u00a3k')return '\u00a3'+a+'k';
   if(q.unit==='\u00a3')return gbp(a);
   if(q.unit==='units')return a.toLocaleString('en-GB')+' units';
   return a.toLocaleString('en-GB');
@@ -876,7 +936,7 @@ function renderResults(statsOnly){
     document.querySelector('#screen-results .eyebrow').textContent='Session complete';
     const acc=total?Math.round(correct/total*100):0;
     document.getElementById('r-acc').textContent=acc+'%';
-    document.getElementById('r-sub').textContent=`${correct} of ${total} correct \u00b7 ${session.mode}`;
+    document.getElementById('r-sub').textContent=`${correct} of ${total} correct \u00b7 ${session.mode} \u00b7 best streak ${session.bestStreak}`;
     const by=agg(session.attempts);
     document.getElementById('session-table').innerHTML=head()+rowsHtml(by);
     const w=weakest(by);const callout=document.getElementById('weak-callout');
