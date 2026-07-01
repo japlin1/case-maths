@@ -61,6 +61,9 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
 .stage{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:12px; padding:8px 0}
 .ringwrap{position:relative; width:130px; height:130px; display:flex; align-items:center; justify-content:center}
 .ringwrap svg{position:absolute; inset:0; transform:rotate(-90deg)}
+.ringwrap.compact{width:60px; height:60px}
+.ringwrap.compact .clock{font-size:14px}
+.ringwrap.compact .clock small{font-size:8px}
 .ring-track{fill:none; stroke:var(--line); stroke-width:7}
 .ring-prog{fill:none; stroke:var(--accent); stroke-width:7; stroke-linecap:round; transition:stroke .2s}
 .clock{font-family:var(--mono); font-size:30px; font-weight:600; font-variant-numeric:tabular-nums}
@@ -71,6 +74,18 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
 .answerline.empty{color:var(--muted)}
 .unit-hint{font-size:12px; color:var(--muted); margin-top:-6px}
 @keyframes blink{50%{opacity:0}}
+
+/* exhibit */
+#exhibit{width:100%; max-width:380px}
+.exhibit-label{font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:600; text-align:center; margin-bottom:2px}
+.exhibit-svg{width:100%; height:auto; display:block}
+.exhibit-svg .exbar{fill:var(--accent)}
+.exhibit-svg .exhibit-axis{stroke:var(--line); stroke-width:1}
+.exhibit-svg text{font-family:var(--mono)}
+.exhibit-svg .exhibit-lbl{fill:var(--muted); font-size:9px}
+.exhibit-svg .exhibit-val{fill:var(--text); font-weight:600; font-size:9px}
+.exhibit-table{margin-top:2px; font-size:12px}
+.exhibit-table th, .exhibit-table td{padding:6px}
 
 /* feedback */
 .feedback{display:none; text-align:center; gap:6px; flex-direction:column; align-items:center}
@@ -121,6 +136,20 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
 .foot{margin-top:auto; padding-top:14px; display:flex; gap:8px}
 .foot .primary{flex:2} .foot .ghost{flex:1}
 .tiny{font-size:11px; color:var(--muted); text-align:center; margin-top:10px; line-height:1.5}
+
+/* tighten up on short phone screens so the keypad stays reachable without scrolling */
+@media (max-height:700px){
+  .screen{padding:10px 16px 10px}
+  .stage{gap:6px}
+  .ringwrap{width:100px; height:100px}
+  .ringwrap.compact{width:44px; height:44px}
+  .prompt{font-size:18px; min-height:2em}
+  .exhibit-label{margin-bottom:0}
+  .exhibit-table th, .exhibit-table td{padding:4px 6px}
+  .keypad{gap:5px; margin-top:5px}
+  .key{height:48px}
+  .actions{margin-top:5px}
+}
 </style>
 </head>
 <body>
@@ -195,13 +224,15 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
     </div>
 
     <div class="stage">
-      <div class="ringwrap">
+      <div class="ringwrap" id="ringwrap">
         <svg viewBox="0 0 130 130">
           <circle class="ring-track" cx="65" cy="65" r="58"></circle>
           <circle class="ring-prog" id="ring" cx="65" cy="65" r="58"></circle>
         </svg>
         <div class="clock" id="clock">10<small>s</small></div>
       </div>
+
+      <div id="exhibit" style="display:none"></div>
 
       <div class="prompt" id="prompt">\u2014</div>
       <div class="answerline empty" id="answerline">enter answer</div>
@@ -299,9 +330,18 @@ const D=d=>d==='easy'?0:(d==='hard'?2:1);
 const GEN={
   pct(difficulty){const lvl=D(difficulty);
     const pool = lvl===0 ? ['of','inc','dec']
-      : lvl===1 ? ['of','inc','dec','whatpc','margin','growth']
-      : ['of','inc','dec','whatpc','margin','growth','successive','reverse','ppt','partpart'];
+      : lvl===1 ? ['of','inc','dec','whatpc','margin','growth','exhibit']
+      : ['of','inc','dec','whatpc','margin','growth','successive','reverse','ppt','partpart','exhibit'];
     const k=pick(pool);
+    if(k==='exhibit'){
+      const yearsCount=4;const base=rnd(20,80,5)*10;const vals=[base];
+      for(let i=1;i<yearsCount;i++){const step=pick([-10,-5,5,8,10,12,15,18,20,25]);vals.push(round(vals[i-1]*(1+step/100),1));}
+      const fromIdx=rnd(0,yearsCount-2);const toIdx=fromIdx+1+rnd(0,yearsCount-2-fromIdx);
+      const from=vals[fromIdx],to=vals[toIdx];const ans=round((to-from)/from*100,2);
+      const labels=vals.map((v,i)=>'Y'+(i+1));
+      return{cat:'pct',prompt:`Chart shows revenue by year (£m). Growth % from ${labels[fromIdx]} to ${labels[toIdx]}?`,answer:ans,unit:'%',method:`(${to} − ${from}) / ${from} = ${ans}%`,
+        chart:{type:'bars',data:vals.map((v,i)=>({label:labels[i],value:v}))}};
+    }
     if(k==='of'){const pPool = lvl===2 ? [6,8,12,14,18,22,24,28,32,35,45,55,65,72,85] : [5,10,12,15,20,25,30,40,60,75];
       const p=pick(pPool);const base = lvl===2 ? rnd(101,989,7)*10 : rnd(20,96,4)*100;const ans=round(base*p/100,2);
       return{cat:'pct',prompt:`What is ${p}% of ${gbp(base)}?`,answer:ans,unit:'\u00a3',method:`${p}% \u00d7 ${gbp(base)} = ${gbp(ans)}`,
@@ -371,8 +411,22 @@ const GEN={
     const start=rnd(50,200,10);const r1=pick([5,8,10,12,15,20]),r2=pick([5,8,10,12,15,20]);const ans=round(start*(1+r1/100)*(1+r2/100),2);
     return{cat:'cagr',prompt:`\u00a3${start}m grows ${r1}% in year 1, then ${r2}% in year 2. Value after year 2? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.02,abs:0},method:`${start} \u00d7 ${1+r1/100} \u00d7 ${1+r2/100} \u2248 \u00a3${ans}m`};},
   sizing(difficulty){const lvl=D(difficulty);
-    const pool = lvl===0 ? ['consumer','b2b'] : lvl===1 ? ['consumer','b2b','replace'] : ['consumer','b2b','replace','share'];
+    const pool = lvl===0 ? ['consumer','b2b'] : lvl===1 ? ['consumer','b2b','replace','exhibit'] : ['consumer','b2b','replace','share','exhibit'];
     const t=pick(pool);
+    if(t==='exhibit'){
+      const n=pick([4,5]);const labels=['North','South','East','West','Online','Wholesale'].slice(0,n);
+      const vals=Array.from({length:n},()=>rnd(5,60,5));
+      const kind=pick(['total','share']);
+      if(kind==='total'){
+        const ans=round(vals.reduce((a,b)=>a+b,0),1);
+        return{cat:'sizing',prompt:`Chart shows revenue by region (£m). Total market size? (£m)`,answer:ans,unit:'£m',tol:{rel:0.02,abs:0},method:`${vals.join(' + ')} = £${ans}m`,
+          chart:{type:'bars',data:labels.map((l,i)=>({label:l,value:vals[i]}))}};
+      }
+      const total=vals.reduce((a,b)=>a+b,0);const maxV=Math.max(...vals);const maxLabel=labels[vals.indexOf(maxV)];
+      const ans=round(maxV/total*100,1);
+      return{cat:'sizing',prompt:`Chart shows revenue by region (£m). What % of the total does ${maxLabel} represent?`,answer:ans,unit:'%',tol:{rel:0.02,abs:0.3},method:`£${maxV}m / £${round(total,1)}m = ${ans}%`,
+        chart:{type:'bars',data:labels.map((l,i)=>({label:l,value:vals[i]}))}};
+    }
     if(t==='consumer'){const popM=pick([50,55,60,67]);const pen=pick([20,25,30,40,50]);const freq=pick([1,2,3,4]);const price=rnd(5,30,1);const ans=round(popM*(pen/100)*freq*price,1);
       let prompt=`Population ${popM}m, ${pen}% buy, ${freq}\u00d7/yr at \u00a3${price}. Market size? (\u00a3m)`;
       let method=`${popM}m \u00d7 ${pen}% \u00d7 ${freq} \u00d7 \u00a3${price} \u2248 \u00a3${ans}m`;
@@ -391,8 +445,18 @@ const GEN={
     const share=pick([5,10,15,20,25]);const ans=round(market*share/100,2);
     return{cat:'sizing',prompt:`Population ${popM}m, ${pen}% buy, ${freq}\u00d7/yr at \u00a3${price} (market \u2248 \u00a3${market}m). At ${share}% share, your firm's revenue? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`\u00a3${market}m \u00d7 ${share}% \u2248 \u00a3${ans}m`};},
   profit(difficulty){const lvl=D(difficulty);
-    const pool = lvl===0 ? ['contribution','breakeven'] : lvl===1 ? ['contribution','breakeven','bridge'] : ['contribution','breakeven','bridge','bridge2'];
+    const pool = lvl===0 ? ['contribution','breakeven'] : lvl===1 ? ['contribution','breakeven','bridge','exhibit'] : ['contribution','breakeven','bridge','bridge2','exhibit'];
     const k=pick(pool);
+    if(k==='exhibit'){
+      const n=pick([3,4]);const names=['Alpha','Beta','Gamma','Delta'].slice(0,n);
+      const revs=Array.from({length:n},()=>rnd(10,60,5));
+      const costs=revs.map(r=>rnd(Math.round(r*0.4),Math.round(r*0.8),1));
+      const profits=revs.map((r,i)=>r-costs[i]);
+      const ans=profits.reduce((a,b)=>a+b,0);
+      const rows=names.map((nm,i)=>[nm,`£${revs[i]}m`,`£${costs[i]}m`]);
+      return{cat:'profit',prompt:`Table shows revenue and cost by product line (£m). Total operating profit? (£m)`,answer:ans,unit:'£m',method:`${profits.map((p,i)=>`£${revs[i]}m−£${costs[i]}m`).join(' + ')} = £${ans}m`,
+        chart:{type:'table',cols:['Product','Revenue','Cost'],rows}};
+    }
     if(k==='contribution'){const price=rnd(20,80,5);const vc=rnd(8,price-5,1);
       return{cat:'profit',prompt:`Price \u00a3${price}, variable cost \u00a3${vc}. Contribution per unit? (\u00a3)`,answer:price-vc,unit:'\u00a3',method:`\u00a3${price} \u2212 \u00a3${vc} = \u00a3${price-vc}`};}
     if(k==='breakeven'){const cont=rnd(5,40,5);const fixedK=rnd(20,200,20);const ans=round(fixedK*1000/cont,0);
@@ -462,7 +526,7 @@ function buildStages(cat, difficulty){
       stages.push({kind:'mcq', prompt:'Which calculation gets you the answer? '+q.prompt, options:opts, correctIdx:opts.indexOf(q.eq.correct), method:`Then: ${q.method}`});
     }
   }
-  stages.push({kind:'numeric', prompt:q.prompt, answer:q.answer, unit:q.unit, tol:q.tol, method:q.method});
+  stages.push({kind:'numeric', prompt:q.prompt, answer:q.answer, unit:q.unit, tol:q.tol, method:q.method, chart:q.chart});
   return {cat, stages};
 }
 function makeQuestion(cat){return buildStages(cat, cfg.difficulty);}
@@ -600,6 +664,9 @@ function loadStage(){
   document.getElementById('prompt').textContent=st.prompt;
   session.tStart=performance.now();
 
+  document.getElementById('ringwrap').classList.toggle('compact', !!st.chart);
+  renderExhibit(document.getElementById('exhibit'), st.chart);
+
   const numericInput=document.getElementById('numeric-input');
   const mcqInput=document.getElementById('mcq-input');
   const answerline=document.getElementById('answerline');
@@ -617,6 +684,32 @@ function loadStage(){
 
   if(session.mode==='timed'){startTimer();}
   else{ringEl.style.strokeDashoffset=0;ringEl.style.opacity=.25;document.getElementById('clock').innerHTML='\u221e';}
+}
+function renderExhibit(container, chart){
+  if(!chart){ container.style.display='none'; container.innerHTML=''; return; }
+  container.style.display='';
+  const label=chart.type==='table'?'Exhibit — table':'Exhibit — chart';
+  const body = chart.type==='table' ? exhibitTableHtml(chart) : exhibitBarsHtml(chart.data);
+  container.innerHTML = `<div class="exhibit-label">${label}</div>${body}`;
+}
+function exhibitBarsHtml(data){
+  const w=300,h=118,padB=20,padT=16;
+  const max=Math.max(...data.map(d=>d.value))*1.15;
+  const bw=w/data.length;
+  const bars=data.map((d,i)=>{
+    const bh=Math.max(2,(d.value/max)*(h-padB-padT));
+    const x=i*bw+bw*0.18, bwid=bw*0.64, y=h-padB-bh;
+    return `<rect class="exbar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bwid.toFixed(1)}" height="${bh.toFixed(1)}" rx="3"></rect>
+      <text class="exhibit-val" x="${(x+bwid/2).toFixed(1)}" y="${(y-5).toFixed(1)}" text-anchor="middle">${d.value.toLocaleString('en-GB')}</text>
+      <text class="exhibit-lbl" x="${(x+bwid/2).toFixed(1)}" y="${h-6}" text-anchor="middle">${d.label}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${w} ${h}" class="exhibit-svg" preserveAspectRatio="xMidYMid meet">
+    <line class="exhibit-axis" x1="0" y1="${h-padB}" x2="${w}" y2="${h-padB}"></line>${bars}</svg>`;
+}
+function exhibitTableHtml(chart){
+  const head='<tr>'+chart.cols.map(c=>`<th>${c}</th>`).join('')+'</tr>';
+  const body=chart.rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('');
+  return `<table class="table exhibit-table"><tbody>${head}${body}</tbody></table>`;
 }
 function renderMcqOptions(st){
   const wrap=document.getElementById('mcq-options');
