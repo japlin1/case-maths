@@ -1,6 +1,6 @@
 {
-  "name": "Case Maths Drill",
-  "short_name": "Case Maths",
+  "name": "CM",
+  "short_name": "CM",
   "description": "Timed mental-maths drills for consulting case interviews.",
   "start_url": "./",
   "scope": "./",

@@ -1,6 +1,6 @@
-# Case Maths Drill
+# CM
 
-An offline-first PWA for consulting case-interview mental maths. Five categories, timed and untimed modes, score tracking by category and mode, and a weak-spot view. Runs on an Android home screen with no signal once installed.
+An offline-first PWA for consulting case-interview mental maths. Seven categories, timed and untimed modes, score tracking by category and mode, and a weak-spot view. Runs on an Android home screen with no signal once installed.
 
 ## Files
 
