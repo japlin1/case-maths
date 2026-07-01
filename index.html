@@ -93,6 +93,16 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
 .btn-next{padding:14px; border-radius:12px; background:var(--accent); color:#06181C; font-weight:700; font-size:16px; width:100%; margin-top:8px; display:none}
 .btn-next.show{display:block}
 
+/* mcq */
+.mcq-options{display:flex; flex-direction:column; gap:8px; margin-top:10px}
+.mcq-opt{width:100%; text-align:left; padding:14px 16px; border-radius:12px; border:1px solid var(--line); background:var(--surface);
+  font-size:14px; font-weight:600; display:flex; gap:10px; align-items:center}
+.mcq-opt .k{font-family:var(--mono); color:var(--accent); font-weight:700; flex-shrink:0}
+.mcq-opt:active{background:var(--surface2)}
+.mcq-opt.correct{border-color:var(--ok); background:rgba(111,179,122,.14)}
+.mcq-opt.wrong{border-color:var(--bad); background:rgba(200,113,106,.14)}
+.mcq-opt[disabled]{pointer-events:none}
+
 /* results */
 .headline{display:flex; align-items:baseline; gap:10px}
 .bignum{font-family:var(--mono); font-size:40px; font-weight:650; font-variant-numeric:tabular-nums}
@@ -205,10 +215,16 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
     </div>
 
     <div id="input-area">
-      <div class="keypad" id="keypad"></div>
-      <div class="actions">
-        <button class="btn-end" id="end-btn">End</button>
-        <button class="btn-submit" id="submit-btn" disabled>Submit</button>
+      <div id="numeric-input">
+        <div class="keypad" id="keypad"></div>
+        <div class="actions">
+          <button class="btn-end" id="end-btn">End</button>
+          <button class="btn-submit" id="submit-btn" disabled>Submit</button>
+        </div>
+      </div>
+      <div id="mcq-input" style="display:none">
+        <div class="mcq-options" id="mcq-options"></div>
+        <button class="btn-end" id="end-btn-mcq" style="margin-top:10px; width:100%">End</button>
       </div>
     </div>
     <button class="btn-next" id="next-btn">Next</button>
@@ -265,10 +281,12 @@ const CATS = {
   cagr:  {label:'Growth & CAGR',     short:'CAGR',    tol:{rel:0.02,abs:0}},
   sizing:{label:'Market sizing',     short:'Sizing',  tol:{rel:0.05,abs:0}},
   profit:{label:'Profit & breakeven',short:'Profit',  tol:{rel:0.005,abs:0.01}},
+  structuring:{label:'Structuring',  short:'Struct',  tol:{rel:0,abs:0}},
 };
 const FOCUS=['sizing','profit'];
 const rnd=(min,max,step=1)=>{const n=Math.floor((max-min)/step)+1;return min+step*Math.floor(Math.random()*n);};
 const pick=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=arr=>{const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const round=(x,dp=2)=>{const f=10**dp;return Math.round(x*f)/f;};
 const gbp=x=>'\u00a3'+x.toLocaleString('en-GB');
 const money=x=>{const a=Math.abs(x);
@@ -286,7 +304,8 @@ const GEN={
     const k=pick(pool);
     if(k==='of'){const pPool = lvl===2 ? [6,8,12,14,18,22,24,28,32,35,45,55,65,72,85] : [5,10,12,15,20,25,30,40,60,75];
       const p=pick(pPool);const base = lvl===2 ? rnd(101,989,7)*10 : rnd(20,96,4)*100;const ans=round(base*p/100,2);
-      return{cat:'pct',prompt:`What is ${p}% of ${gbp(base)}?`,answer:ans,unit:'\u00a3',method:`${p}% \u00d7 ${gbp(base)} = ${gbp(ans)}`};}
+      return{cat:'pct',prompt:`What is ${p}% of ${gbp(base)}?`,answer:ans,unit:'\u00a3',method:`${p}% \u00d7 ${gbp(base)} = ${gbp(ans)}`,
+        eq:{correct:`${gbp(base)} \u00d7 ${p}%`,distractors:[`${gbp(base)} \u00f7 ${p}%`,`${gbp(base)} \u00d7 (100\u2212${p})%`,`${gbp(base)} + ${p}%`]}};}
     if(k==='inc'||k==='dec'){const pPool = lvl===2 ? [6,8,14,18,22,28,32,35,45,55,65] : [5,10,15,20,25,40,50];
       const p=pick(pPool);const base = lvl===2 ? rnd(101,989,7)*10 : rnd(10,90,5)*100;
       const f=k==='inc'?1+p/100:1-p/100;const ans=round(base*f,2);
@@ -294,11 +313,13 @@ const GEN={
     if(k==='whatpc'){const whole = lvl===2 ? rnd(101,989,7)*10 : rnd(10,40,2)*100;
       const pPool = lvl===2 ? [8,12,16,24,28,32,35,45,55,65,85] : [10,15,20,25,30,40,50,75];
       const p=pick(pPool);const part=round(whole*p/100,2);
-      return{cat:'pct',prompt:`What % is ${gbp(part)} of ${gbp(whole)}?`,answer:p,unit:'%',method:`${part} / ${whole} = ${p}%`};}
+      return{cat:'pct',prompt:`What % is ${gbp(part)} of ${gbp(whole)}?`,answer:p,unit:'%',method:`${part} / ${whole} = ${p}%`,
+        eq:{correct:`${gbp(part)} ÷ ${gbp(whole)}`,distractors:[`${gbp(whole)} ÷ ${gbp(part)}`,`${gbp(part)} × ${gbp(whole)}`,`(${gbp(whole)} − ${gbp(part)}) ÷ ${gbp(whole)}`]}};}
     if(k==='margin'){const rev = lvl===2 ? rnd(101,989,7)*1000 : rnd(10,80,5)*100000;
       const mpPool = lvl===2 ? [9,11,13,17,19,22,27,33,38] : [8,10,12,15,20,25,30];
       const mp=pick(mpPool);const profit=round(rev*mp/100,2);
-      return{cat:'pct',prompt:`Revenue ${money(rev)}, profit ${money(profit)}. Margin %?`,answer:mp,unit:'%',method:`${money(profit)} / ${money(rev)} = ${mp}%`};}
+      return{cat:'pct',prompt:`Revenue ${money(rev)}, profit ${money(profit)}. Margin %?`,answer:mp,unit:'%',method:`${money(profit)} / ${money(rev)} = ${mp}%`,
+        eq:{correct:`${money(profit)} ÷ ${money(rev)}`,distractors:[`${money(rev)} ÷ ${money(profit)}`,`${money(profit)} ÷ (${money(rev)} − ${money(profit)})`,`${money(profit)} × ${money(rev)}`]}};}
     if(k==='growth'){const old = lvl===2 ? rnd(101,989,7)*10 : rnd(10,50,5)*100;
       const gpPool = lvl===2 ? [8,14,18,22,28,32,35,45] : [10,20,25,40,50];
       const gp=pick(gpPool);const nw=round(old*(1+gp/100),2);
@@ -318,9 +339,18 @@ const GEN={
     const pool = lvl===0 ? ['rev','cpu'] : lvl===1 ? ['rev','cpu','cancel'] : ['rev','cpu','cancel','delta'];
     const k=pick(pool);
     if(k==='rev'){const price=rnd(6,40,2);const volM=rnd(8,64,2)/10;const ans=round(price*volM,2);
-      return{cat:'units',prompt:`Price \u00a3${price}, volume ${volM}m units. Revenue? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`\u00a3${price} \u00d7 ${volM}m = \u00a3${ans}m`};}
+      let prompt=`Price \u00a3${price}, volume ${volM}m units. Revenue? (\u00a3m)`;
+      let method=`\u00a3${price} \u00d7 ${volM}m = \u00a3${ans}m`;
+      if(lvl===2 && Math.random()<0.4){
+        const noise=pick([`Fixed costs are \u00a3${rnd(2,20)}m`,`The team has ${rnd(20,200,10)} staff`,`Last year's volume was ${round(volM*0.9,2)}m units`,`${rnd(2,8)} SKUs are sold`]);
+        prompt=`Price \u00a3${price}, volume ${volM}m units. ${noise}. Revenue? (\u00a3m)`;
+        method+=` ("${noise}" wasn't needed)`;
+      }
+      return{cat:'units',prompt,answer:ans,unit:'\u00a3m',method,
+        eq:{correct:`\u00a3${price} \u00d7 ${volM}m`,distractors:[`\u00a3${price} \u00f7 ${volM}m`,`${volM}m \u00f7 \u00a3${price}`,`\u00a3${price} + ${volM}m`]}};}
     if(k==='cpu'){const per=rnd(8,40,2);const volM=rnd(10,60,5)/10;const totalM=round(per*volM,2);
-      return{cat:'units',prompt:`Total cost \u00a3${totalM}m over ${volM}m units. Cost per unit? (\u00a3)`,answer:per,unit:'\u00a3',method:`\u00a3${totalM}m / ${volM}m = \u00a3${per}`};}
+      return{cat:'units',prompt:`Total cost \u00a3${totalM}m over ${volM}m units. Cost per unit? (\u00a3)`,answer:per,unit:'\u00a3',method:`\u00a3${totalM}m / ${volM}m = \u00a3${per}`,
+        eq:{correct:`\u00a3${totalM}m \u00f7 ${volM}m`,distractors:[`${volM}m \u00f7 \u00a3${totalM}m`,`\u00a3${totalM}m \u00d7 ${volM}m`,`\u00a3${totalM}m \u2212 ${volM}m`]}};}
     if(k==='cancel'){const ratio=pick([1500,2000,2500,3000,4000,5000]);const denomM=pick([1.2,1.5,2,2.5,4]);const numBn=round(ratio*denomM/1000,3);
       return{cat:'units',prompt:`\u00a3${numBn}bn divided by \u00a3${denomM}m equals?`,answer:ratio,unit:'',method:`\u00a3${numBn}bn / \u00a3${denomM}m = ${ratio.toLocaleString('en-GB')}`};}
     const price=rnd(6,40,2);const vol1=rnd(8,50,2)/10;const g=pick([10,15,20,25,30]);const vol2=round(vol1*(1+g/100),2);
@@ -330,7 +360,8 @@ const GEN={
     const pool = lvl===0 ? ['compound'] : lvl===1 ? ['compound','reverse','rule72fwd'] : ['compound','reverse','rule72fwd','rule72rev','twostage'];
     const k=pick(pool);
     if(k==='compound'){const start=rnd(50,200,10);const r=pick([5,8,10,12,15,20]);const yrs=rnd(2,5);const ans=round(start*(1+r/100)**yrs,2);
-      return{cat:'cagr',prompt:`\u00a3${start}m growing ${r}%/yr for ${yrs} years. Final value? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.02,abs:0},method:`${start} \u00d7 ${1+r/100}^${yrs} \u2248 \u00a3${ans}m`};}
+      return{cat:'cagr',prompt:`\u00a3${start}m growing ${r}%/yr for ${yrs} years. Final value? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.02,abs:0},method:`${start} \u00d7 ${1+r/100}^${yrs} \u2248 \u00a3${ans}m`,
+        eq:{correct:`\u00a3${start}m \u00d7 (1+${r}%)^${yrs}`,distractors:[`\u00a3${start}m \u00d7 (1+${r}%) \u00d7 ${yrs}`,`\u00a3${start}m \u00f7 (1+${r}%)^${yrs}`,`\u00a3${start}m \u00d7 (1+${r}\u00d7${yrs}%)`]}};}
     if(k==='reverse'){const start=rnd(80,160,10);const r=pick([6,8,10,12,15]);const yrs=rnd(2,5);const end=round(start*(1+r/100)**yrs,0);const c=round(((end/start)**(1/yrs)-1)*100,2);
       return{cat:'cagr',prompt:`\u00a3${start}m to \u00a3${end}m over ${yrs} years. Approx CAGR? (%)`,answer:c,unit:'%',tol:{abs:1.0,rel:0.02},method:`(${end}/${start})^(1/${yrs}) \u2212 1 \u2248 ${c}%`};}
     if(k==='rule72fwd'){const r=pick([2,3,4,6,8,9,12,18,24]);const ans=round(72/r,1);
@@ -343,7 +374,15 @@ const GEN={
     const pool = lvl===0 ? ['consumer','b2b'] : lvl===1 ? ['consumer','b2b','replace'] : ['consumer','b2b','replace','share'];
     const t=pick(pool);
     if(t==='consumer'){const popM=pick([50,55,60,67]);const pen=pick([20,25,30,40,50]);const freq=pick([1,2,3,4]);const price=rnd(5,30,1);const ans=round(popM*(pen/100)*freq*price,1);
-      return{cat:'sizing',prompt:`Population ${popM}m, ${pen}% buy, ${freq}\u00d7/yr at \u00a3${price}. Market size? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`${popM}m \u00d7 ${pen}% \u00d7 ${freq} \u00d7 \u00a3${price} \u2248 \u00a3${ans}m`};}
+      let prompt=`Population ${popM}m, ${pen}% buy, ${freq}\u00d7/yr at \u00a3${price}. Market size? (\u00a3m)`;
+      let method=`${popM}m \u00d7 ${pen}% \u00d7 ${freq} \u00d7 \u00a3${price} \u2248 \u00a3${ans}m`;
+      if(lvl===2 && Math.random()<0.4){
+        const noise=pick([`${rnd(2,15)} competitors already serve this market`,`Average customer rating is ${rnd(3,5)}.${rnd(0,9)}/5`,`The category grew ${rnd(2,8)}%/yr historically`,`Distribution costs run ${rnd(5,15)}% of revenue`]);
+        prompt=`Population ${popM}m, ${pen}% buy, ${freq}\u00d7/yr at \u00a3${price}. ${noise}. Market size? (\u00a3m)`;
+        method+=` ("${noise}" wasn't needed)`;
+      }
+      return{cat:'sizing',prompt,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method,
+        eq:{correct:`${popM}m \u00d7 ${pen}% \u00d7 ${freq} \u00d7 \u00a3${price}`,distractors:[`${popM}m \u00f7 ${pen}% \u00d7 ${freq} \u00d7 \u00a3${price}`,`${popM}m \u00d7 ${pen}% \u00d7 \u00a3${price}`,`${popM}m \u00d7 ${pen}% + ${freq} \u00d7 \u00a3${price}`]}};}
     if(t==='b2b'){const firms=rnd(20,120,10)*1000;const adopt=pick([5,10,15,20]);const spend=rnd(2,20,1)*1000;const ans=round(firms*(adopt/100)*spend/1e6,1);
       return{cat:'sizing',prompt:`${firms.toLocaleString('en-GB')} firms, ${adopt}% adopt, \u00a3${spend.toLocaleString('en-GB')}/yr each. Market? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`${firms.toLocaleString('en-GB')} \u00d7 ${adopt}% \u00d7 \u00a3${spend.toLocaleString('en-GB')} \u2248 \u00a3${ans}m`};}
     if(t==='replace'){const units=rnd(20,80,5);const life=pick([4,5,8,10]);const price=rnd(20,120,10);const ans=round(units/life*price,1);
@@ -357,14 +396,76 @@ const GEN={
     if(k==='contribution'){const price=rnd(20,80,5);const vc=rnd(8,price-5,1);
       return{cat:'profit',prompt:`Price \u00a3${price}, variable cost \u00a3${vc}. Contribution per unit? (\u00a3)`,answer:price-vc,unit:'\u00a3',method:`\u00a3${price} \u2212 \u00a3${vc} = \u00a3${price-vc}`};}
     if(k==='breakeven'){const cont=rnd(5,40,5);const fixedK=rnd(20,200,20);const ans=round(fixedK*1000/cont,0);
-      return{cat:'profit',prompt:`Fixed cost \u00a3${fixedK}k, contribution \u00a3${cont}/unit. Breakeven units?`,answer:ans,unit:'units',method:`\u00a3${fixedK}k / \u00a3${cont} = ${ans.toLocaleString('en-GB')} units`};}
+      return{cat:'profit',prompt:`Fixed cost \u00a3${fixedK}k, contribution \u00a3${cont}/unit. Breakeven units?`,answer:ans,unit:'units',method:`\u00a3${fixedK}k / \u00a3${cont} = ${ans.toLocaleString('en-GB')} units`,
+        eq:{correct:`\u00a3${fixedK}k \u00f7 \u00a3${cont}`,distractors:[`\u00a3${cont} \u00f7 \u00a3${fixedK}k`,`\u00a3${fixedK}k \u00d7 \u00a3${cont}`,`\u00a3${fixedK}k \u2212 \u00a3${cont}`]}};}
     if(k==='bridge'){const rev=rnd(50,200,10);const cogs=rnd(20,rev-20,5);const opex=rnd(5,rev-cogs-5,5);const ans=rev-cogs-opex;
-      return{cat:'profit',prompt:`Revenue \u00a3${rev}m, COGS \u00a3${cogs}m, opex \u00a3${opex}m. Operating profit? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`${rev} \u2212 ${cogs} \u2212 ${opex} = \u00a3${ans}m`};}
+      let prompt=`Revenue \u00a3${rev}m, COGS \u00a3${cogs}m, opex \u00a3${opex}m. Operating profit? (\u00a3m)`;
+      let method=`${rev} \u2212 ${cogs} \u2212 ${opex} = \u00a3${ans}m`;
+      if(lvl===2 && Math.random()<0.4){
+        const noise=pick([`Headcount is ${rnd(50,400,10)} FTEs`,`D&A last year was \u00a3${rnd(2,15)}m`,`Marketing spend was \u00a3${rnd(3,20)}m the prior year`,`The business has ${rnd(2,10)} product lines`]);
+        prompt=`Revenue \u00a3${rev}m, COGS \u00a3${cogs}m, opex \u00a3${opex}m. ${noise}. Operating profit? (\u00a3m)`;
+        method+=` ("${noise}" wasn't needed)`;
+      }
+      return{cat:'profit',prompt,answer:ans,unit:'\u00a3m',method,
+        eq:{correct:`\u00a3${rev}m \u2212 \u00a3${cogs}m \u2212 \u00a3${opex}m`,distractors:[`\u00a3${rev}m \u2212 (\u00a3${cogs}m + \u00a3${opex}m) \u00d7 2`,`\u00a3${rev}m \u2212 \u00a3${cogs}m + \u00a3${opex}m`,`\u00a3${rev}m \u00f7 (\u00a3${cogs}m + \u00a3${opex}m)`]}};}
     const rev=rnd(50,200,10);const g=pick([5,10,15,20]);const cogsPct=pick([30,35,40,45,50]);const opex=rnd(5,40,5);
     const newRev=round(rev*(1+g/100),2);const cogs=round(newRev*cogsPct/100,2);const ans=round(newRev-cogs-opex,2);
     return{cat:'profit',prompt:`Revenue \u00a3${rev}m grows ${g}%. COGS stays ${cogsPct}% of revenue, opex fixed \u00a3${opex}m. New operating profit? (\u00a3m)`,answer:ans,unit:'\u00a3m',method:`\u00a3${rev}m\u00d7${1+g/100}=\u00a3${newRev}m; \u2212${cogsPct}% COGS (\u00a3${cogs}m) \u2212 \u00a3${opex}m opex = \u00a3${ans}m`};},
+  structuring(difficulty){
+    const k=pick(['lever','framework','synth']);
+    if(k==='lever'){
+      const driver=pick(['price','cost','volume','mix']);
+      const pPct=rnd(4,10),cPct=rnd(5,12),vPct=rnd(8,20),marginPts=rnd(3,7);
+      let prompt;
+      if(driver==='price') prompt=`Volume is flat and unit cost is unchanged, but margin fell ${marginPts}pp. Price per unit dropped ${pPct}%. What's driving the margin decline?`;
+      else if(driver==='cost') prompt=`Volume is flat and price per unit is unchanged, but margin fell ${marginPts}pp. Unit cost rose ${cPct}%. What's driving the margin decline?`;
+      else if(driver==='volume') prompt=`Margin % per unit is unchanged and price/cost per unit are flat, but total profit fell ${vPct}%. Units sold fell ${vPct}%. What's driving the profit decline?`;
+      else prompt=`Every product line's own margin % held steady, but overall blended margin fell. The mix shifted toward the lower-margin product this quarter. What's driving the decline?`;
+      const options=['Price','Cost','Volume','Mix'];
+      const correctIdx=options.findIndex(o=>o.toLowerCase()===driver);
+      return{cat:'structuring',prompt,options,correctIdx,method:`The only lever that moved unfavourably here is ${options[correctIdx]}.`};
+    }
+    if(k==='framework'){
+      const scenarios=[
+        {text:'Client wants UK demand for a brand-new product with no direct comps, but you know the target customer count and plausible spend per customer.',ans:'Bottom-up'},
+        {text:'Good public data exists for a near-identical product in a comparable country, but not for this exact market.',ans:'Analogous market'},
+        {text:'A trade body publishes total industry revenue, and you need this client\u2019s achievable slice by segment share.',ans:'Top-down'},
+        {text:'The product is capacity-constrained (e.g. hospital beds, refinery output) and demand clearly exceeds supply.',ans:'Supply-side'},
+        {text:'You have detailed data on how many people buy, how often, and at what price \u2014 but no market-total figure to start from.',ans:'Bottom-up'},
+      ];
+      const s=pick(scenarios);
+      const options=['Top-down','Bottom-up','Analogous market','Supply-side'];
+      const correctIdx=options.indexOf(s.ans);
+      return{cat:'structuring',prompt:`Which sizing approach fits best? ${s.text}`,options,correctIdx,method:`${s.ans} is the natural fit for this data situation.`};
+    }
+    const breakeven=rnd(20,200,10)*100;
+    const bucket=pick(['proceed','no','close']);
+    const ratio = bucket==='proceed'?(1.2+Math.random()*0.6): bucket==='no'?(0.4+Math.random()*0.35): (0.85+Math.random()*0.3);
+    const expected=Math.round(breakeven*ratio);
+    const options=['Proceed \u2014 demand clears breakeven with room to spare',"Don't proceed \u2014 demand falls short of breakeven",'Too close to call \u2014 get better demand data before deciding'];
+    const correctIdx = bucket==='proceed'?0:bucket==='no'?1:2;
+    return{cat:'structuring',prompt:`Breakeven is ${breakeven.toLocaleString('en-GB')} units. Demand estimate is ${expected.toLocaleString('en-GB')} units. What should you recommend?`,options,correctIdx,method:`${expected.toLocaleString('en-GB')} / ${breakeven.toLocaleString('en-GB')} = ${round(expected/breakeven,2)}\u00d7 breakeven`};
+  },
 };
-function makeQuestion(cat){const q=GEN[cat](cfg.difficulty);if(!q.tol)q.tol=CATS[cat].tol;return q;}
+function buildStages(cat, difficulty){
+  const q=GEN[cat](difficulty);
+  if(q.options){
+    return {cat, stages:[{kind:'mcq', prompt:q.prompt, options:q.options, correctIdx:q.correctIdx, method:q.method}]};
+  }
+  if(!q.tol) q.tol=CATS[cat].tol;
+  const lvl=D(difficulty);
+  const stages=[];
+  if(q.eq && lvl>=1){
+    const chance = lvl===2 ? 0.8 : 0.5;
+    if(Math.random()<chance){
+      const opts=shuffle([q.eq.correct, ...q.eq.distractors]);
+      stages.push({kind:'mcq', prompt:'Which calculation gets you the answer? '+q.prompt, options:opts, correctIdx:opts.indexOf(q.eq.correct), method:`Then: ${q.method}`});
+    }
+  }
+  stages.push({kind:'numeric', prompt:q.prompt, answer:q.answer, unit:q.unit, tol:q.tol, method:q.method});
+  return {cat, stages};
+}
+function makeQuestion(cat){return buildStages(cat, cfg.difficulty);}
 function isCorrect(answer,given,tol,mult){
   if(!isFinite(given))return false;
   const allowed=Math.max((tol.abs||0)*mult,(tol.rel||0)*mult*Math.abs(answer));
@@ -441,9 +542,12 @@ const ringEl=document.getElementById('ring');
 const C=2*Math.PI*58; ringEl.style.strokeDasharray=C;
 const reduceMotion=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
+const UNIT_HINT={units:'units',ppt:'percentage points',yrs:'years'};
 let entry='';
+function currentStage(){return session.q.stages[session.stageIdx];}
 function press(k){
-  if(session&&session.locked)return;
+  if(!session||session.locked)return;
+  if(currentStage().kind!=='numeric')return;
   if(k==='back'){entry=entry.slice(0,-1);}
   else if(k==='\u00b1'){entry=entry.startsWith('-')?entry.slice(1):'-'+entry;}
   else if(k==='.'){ if(!entry.includes('.')) entry+= (entry===''||entry==='-')?'0.':'.'; }
@@ -453,11 +557,18 @@ function press(k){
 // allow physical keyboard too
 window.addEventListener('keydown',e=>{
   if(!document.getElementById('screen-drill').classList.contains('active'))return;
+  if(!session)return;
+  const st=currentStage();
+  if(session.locked){ if(e.key==='Enter')advance(); return; }
+  if(st.kind==='mcq'){
+    if(e.key>='1'&&e.key<='9'){ const idx=+e.key-1; if(idx<st.options.length) chooseOption(idx); }
+    return;
+  }
   if(e.key>='0'&&e.key<='9')press(e.key);
   else if(e.key==='.')press('.');
   else if(e.key==='-')press('\u00b1');
   else if(e.key==='Backspace')press('back');
-  else if(e.key==='Enter'){ session&&session.locked?next():submit(); }
+  else if(e.key==='Enter')submit();
 });
 function renderEntry(){
   const el=document.getElementById('answerline');
@@ -471,22 +582,52 @@ function startSession(){
   show('screen-drill');nextQuestion();
 }
 function nextQuestion(){
-  session.locked=false;entry='';
-  document.getElementById('feedback').classList.remove('show');
-  document.getElementById('input-area').style.display='';
-  document.getElementById('next-btn').classList.remove('show');
   const cat=pick(session.pool);
   session.q=makeQuestion(cat);
-  session.tStart=performance.now();
-  document.getElementById('prompt').textContent=session.q.prompt;
-  document.getElementById('qcat').textContent=CATS[cat].label;
-  const UNIT_HINT={units:'units',ppt:'percentage points',yrs:'years'};
-  document.getElementById('unit-hint').textContent=session.q.unit?('answer in '+(UNIT_HINT[session.q.unit]||session.q.unit)):'';
+  session.stageIdx=0;
+  loadStage();
+}
+function loadStage(){
+  session.locked=false;entry='';session.selectedIdx=-1;
+  document.getElementById('feedback').classList.remove('show');
+  document.getElementById('next-btn').classList.remove('show');
+  const st=currentStage();
+  const cat=session.q.cat;
+  const stepLabel = session.q.stages.length>1 ? ` \u00b7 step ${session.stageIdx+1}/${session.q.stages.length}` : '';
+  document.getElementById('qcat').textContent=CATS[cat].label+stepLabel;
   const total=session.len===0?'\u221e':session.len;
   document.getElementById('progress').textContent=`${session.i+1} / ${total}`;
-  renderEntry();
+  document.getElementById('prompt').textContent=st.prompt;
+  session.tStart=performance.now();
+
+  const numericInput=document.getElementById('numeric-input');
+  const mcqInput=document.getElementById('mcq-input');
+  const answerline=document.getElementById('answerline');
+  const unitHint=document.getElementById('unit-hint');
+  if(st.kind==='numeric'){
+    numericInput.style.display='';mcqInput.style.display='none';
+    answerline.style.display='';unitHint.style.display='';
+    unitHint.textContent=st.unit?('answer in '+(UNIT_HINT[st.unit]||st.unit)):'';
+    renderEntry();
+  } else {
+    numericInput.style.display='none';mcqInput.style.display='';
+    answerline.style.display='none';unitHint.style.display='none';
+    renderMcqOptions(st);
+  }
+
   if(session.mode==='timed'){startTimer();}
   else{ringEl.style.strokeDashoffset=0;ringEl.style.opacity=.25;document.getElementById('clock').innerHTML='\u221e';}
+}
+function renderMcqOptions(st){
+  const wrap=document.getElementById('mcq-options');
+  wrap.innerHTML='';
+  st.options.forEach((opt,i)=>{
+    const b=document.createElement('button');
+    b.className='mcq-opt';
+    b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;
+    b.onclick=()=>chooseOption(i);
+    wrap.appendChild(b);
+  });
 }
 function startTimer(){
   ringEl.style.opacity=1;
@@ -504,34 +645,62 @@ function startTimer(){
 function timeUp(){
   if(session.locked)return;
   cancelAnimationFrame(raf);
-  const given=parseEntry();
-  const wouldBe=isFinite(given)&&isCorrect(session.q.answer,given,session.q.tol,session.strict);
-  recordAndShow(false,'time',wouldBe);
+  const st=currentStage();
+  if(st.kind==='numeric'){
+    const given=parseEntry();
+    const wouldBe=isFinite(given)&&isCorrect(st.answer,given,st.tol,session.strict);
+    recordAndShow(false,'time',wouldBe);
+  } else {
+    recordAndShow(false,'time',false);
+  }
 }
 function parseEntry(){const v=parseFloat(entry.replace(/[^0-9.\-]/g,''));return v;}
 function submit(){
   if(session.locked)return;
+  const st=currentStage();
+  if(st.kind!=='numeric')return;
   if(session.mode==='timed')cancelAnimationFrame(raf);
   const given=parseEntry();
-  const ok=isCorrect(session.q.answer,given,session.q.tol,session.strict);
+  const ok=isCorrect(st.answer,given,st.tol,session.strict);
+  recordAndShow(ok,'answer',ok);
+}
+function chooseOption(i){
+  if(session.locked)return;
+  const st=currentStage();
+  if(st.kind!=='mcq')return;
+  if(session.mode==='timed')cancelAnimationFrame(raf);
+  session.selectedIdx=i;
+  const ok=i===st.correctIdx;
   recordAndShow(ok,'answer',ok);
 }
 function recordAndShow(ok,reason,wouldBe){
   session.locked=true;
+  const st=currentStage();
   const ms=Math.round(performance.now()-session.tStart);
-  session.attempts.push({c:session.q.cat,mode:session.mode,ok,ms});
+  session.attempts.push({c:session.q.cat,mode:session.mode,ok,ms,kind:st.kind});
   if(ok)session.correct++;
   // feedback
   const fb=document.getElementById('feedback');
   const v=document.getElementById('verdict');
   v.className='verdict '+(ok?'ok':'bad');
   v.textContent = reason==='time' ? 'Time' : (ok?'Correct':'Not quite');
-  const ansStr=formatAnswer(session.q);
+  let ansStr, methodStr;
+  if(st.kind==='numeric'){
+    ansStr=formatAnswer(st);
+    methodStr=st.method;
+    if(reason==='time' && isFinite(parseEntry())) methodStr += ` \u00b7 your ${entry} would ${wouldBe?'have counted':'have missed'}`;
+    document.getElementById('numeric-input').style.display='none';
+  } else {
+    ansStr=st.options[st.correctIdx];
+    methodStr=st.method;
+    [...document.querySelectorAll('.mcq-opt')].forEach((b,i)=>{
+      b.setAttribute('disabled','');
+      if(i===st.correctIdx)b.classList.add('correct');
+      else if(i===session.selectedIdx)b.classList.add('wrong');
+    });
+  }
   document.getElementById('correctval').textContent=ansStr;
-  let m=session.q.method;
-  if(reason==='time' && isFinite(parseEntry())) m += ` \u00b7 your ${entry} would ${wouldBe?'have counted':'have missed'}`;
-  document.getElementById('method').textContent=m;
-  document.getElementById('input-area').style.display='none';
+  document.getElementById('method').textContent=methodStr;
   fb.classList.add('show');
   document.getElementById('next-btn').classList.add('show');
   if(session.mode==='timed'){ringEl.style.strokeDashoffset=ok?0:C;document.getElementById('clock').innerHTML=ok?'\u2713':'\u2014';}
@@ -545,6 +714,14 @@ function formatAnswer(q){
   if(q.unit==='\u00a3')return gbp(a);
   if(q.unit==='units')return a.toLocaleString('en-GB')+' units';
   return a.toLocaleString('en-GB');
+}
+function advance(){
+  if(session.stageIdx+1 < session.q.stages.length){
+    session.stageIdx++;
+    loadStage();
+  } else {
+    next();
+  }
 }
 function next(){
   session.i++;
@@ -562,8 +739,9 @@ document.getElementById('again-btn').onclick=startSession;
 document.getElementById('home-btn').onclick=()=>show('screen-home');
 document.getElementById('to-stats').onclick=()=>{renderResults(true);show('screen-results');};
 document.getElementById('submit-btn').onclick=submit;
-document.getElementById('next-btn').onclick=next;
+document.getElementById('next-btn').onclick=advance;
 document.getElementById('end-btn').onclick=endSession;
+document.getElementById('end-btn-mcq').onclick=endSession;
 document.getElementById('reset-btn').onclick=()=>{store.set(S_ATT,[]);store.set(S_SESS,[]);renderResults(true);};
 
 /* ---------- persistence + stats ---------- */
