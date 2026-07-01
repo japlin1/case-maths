@@ -1,5 +1,5 @@
 /* Bump VERSION on every redeploy so phones pick up the new build. */
-const VERSION = 'v4';
+const VERSION = 'v6';
 const CACHE = 'cmd-' + VERSION;
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
