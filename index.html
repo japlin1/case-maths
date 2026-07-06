@@ -124,8 +124,11 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
 .btn-end{padding:14px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-weight:600}
 .btn-submit{padding:14px; border-radius:12px; background:var(--accent); color:#06181C; font-weight:700; font-size:16px}
 .btn-submit:disabled{opacity:.4}
-.btn-next{padding:14px; border-radius:12px; background:var(--accent); color:#06181C; font-weight:700; font-size:16px; width:100%; margin-top:8px; display:none}
+.nav-row{display:flex; gap:8px; margin-top:8px}
+.btn-next{padding:14px; border-radius:12px; background:var(--accent); color:#06181C; font-weight:700; font-size:16px; flex:1; display:none}
 .btn-next.show{display:block}
+.btn-prev{display:none; padding:14px 18px; border-radius:12px; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-weight:700; font-size:18px}
+.btn-prev.show{display:block}
 
 /* mcq */
 .mcq-options{display:flex; flex-direction:column; gap:8px; margin-top:10px}
@@ -209,9 +212,9 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
       <div class="block">
         <div class="label">Session length</div>
         <div class="seg" id="len-seg">
+          <button data-len="10" aria-pressed="false">10</button>
           <button data-len="20" aria-pressed="true">20</button>
-          <button data-len="50" aria-pressed="false">50</button>
-          <button data-len="0" aria-pressed="false">Endless</button>
+          <button data-len="0" aria-pressed="false">Unlimited</button>
         </div>
         <div style="margin-top:12px">
           <div class="label">Marking</div>
@@ -285,7 +288,10 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
         <button class="btn-end" id="end-btn-mcq" style="margin-top:10px; width:100%">End</button>
       </div>
     </div>
-    <button class="btn-next" id="next-btn">Next</button>
+    <div class="nav-row">
+      <button class="btn-prev" id="prev-btn" aria-label="Previous question">&lsaquo;</button>
+      <button class="btn-next" id="next-btn">Next</button>
+    </div>
   </section>
 
   <!-- RESULTS -->
@@ -402,7 +408,7 @@ const GEN={
       const from=vals[fromIdx],to=vals[toIdx];const ans=round((to-from)/from*100,2);
       const labels=vals.map((v,i)=>'Y'+(i+1));
       return{cat:'pct',sub:k,prompt:`Chart shows revenue by year (£m). Growth % from ${labels[fromIdx]} to ${labels[toIdx]}?`,answer:ans,unit:'%',method:`(${to} − ${from}) / ${from} = ${ans}%`,
-        tip:`Read off just the two bars you need — subtract, then divide by the earlier (starting) bar, never the later one.`,
+        tip:`The change is ${round(to-from,1)} on a base of ${from}. 10% of ${from} is ${round(from*0.1,1)}; ${round(to-from,1)} is ${round((to-from)/(from*0.1),1)}× that → ≈${round((to-from)/(from*0.1)*10,0)}%.`,
         chart:{type:'bars',data:vals.map((v,i)=>({label:labels[i],value:v}))}};
     }
     if(k==='of'){const pPool = lvl===2 ? [6,8,12,14,18,22,24,28,32,35,45,55,65,72,85] : [5,10,12,15,20,25,30,40,60,75];
@@ -420,13 +426,13 @@ const GEN={
       const p=pick(pPool);const part=round(whole*p/100,2);
       return{cat:'pct',sub:k,prompt:`What % is ${gbp(part)} of ${gbp(whole)}?`,answer:p,unit:'%',method:`${part} / ${whole} = ${p}%`,
         eq:{correct:`${gbp(part)} ÷ ${gbp(whole)}`,distractors:[`${gbp(whole)} ÷ ${gbp(part)}`,`${gbp(part)} × ${gbp(whole)}`,`(${gbp(whole)} − ${gbp(part)}) ÷ ${gbp(whole)}`]},
-        tip:`Simplify before you divide — both numbers share a factor of 10 (or more), so shrink them first: ${part}/${whole} is the same ratio as smaller, easier numbers.`};}
+        tip:`Round £${whole.toLocaleString('en-GB')} to £${(Math.round(whole/100)*100).toLocaleString('en-GB')}: ${part} ÷ ${Math.round(whole/100)*100} ≈ ${round(part/(Math.round(whole/100)*100)*100,1)}%. ${Math.round(whole/100)*100>whole?'You rounded the base up, so nudge the estimate up':Math.round(whole/100)*100<whole?'You rounded the base down, so nudge the estimate down':'No rounding needed'} → ${p}%.`};}
     if(k==='margin'){const rev = lvl===2 ? rnd(101,989,7)*1000 : rnd(10,80,5)*100000;
       const mpPool = lvl===2 ? [9,11,13,17,19,22,27,33,38] : [8,10,12,15,20,25,30];
       const mp=pick(mpPool);const profit=round(rev*mp/100,2);
       return{cat:'pct',sub:k,prompt:`Revenue ${money(rev)}, profit ${money(profit)}. Margin %?`,answer:mp,unit:'%',method:`${money(profit)} / ${money(rev)} = ${mp}%`,
         eq:{correct:`${money(profit)} ÷ ${money(rev)}`,distractors:[`${money(rev)} ÷ ${money(profit)}`,`${money(profit)} ÷ (${money(rev)} − ${money(profit)})`,`${money(profit)} × ${money(rev)}`]},
-        tip:`Margin always divides profit by revenue (the bigger number on the bottom) — round revenue to the nearest clean number first to estimate fast.`};}
+        tip:`10% of revenue is ${money(rev*0.1)}. Profit ${money(profit)} is ${round(profit/(rev*0.1),1)}× that → ${mp}%.`};}
     if(k==='growth'){const old = lvl===2 ? rnd(101,989,7)*10 : rnd(10,50,5)*100;
       const gpPool = lvl===2 ? [8,14,18,22,28,32,35,45] : [10,20,25,40,50];
       const gp=pick(gpPool);const nw=round(old*(1+gp/100),2);
@@ -440,7 +446,7 @@ const GEN={
     if(k==='reverse'){const p=pick([5,10,15,20,25,30,40]);const dir=pick(['inc','dec']);
       const orig=rnd(20,96,4)*100;const f=dir==='inc'?1+p/100:1-p/100;const after=round(orig*f,2);const ans=round(after/f,2);
       return{cat:'pct',sub:k,prompt:`After a ${p}% ${dir==='inc'?'increase':'decrease'}, a value is ${gbp(after)}. What was the original value?`,answer:ans,unit:'\u00a3',method:`${gbp(after)} / ${f} = ${gbp(ans)}`,
-        tip:`Divide by the multiplier ${f} to undo the change \u2014 dividing by (1${dir==='inc'?'+':'\u2212'}${p}%) is the inverse operation; don't just add/subtract the % from the final value.`};}
+        tip:`Tempting but wrong: just ${dir==='inc'?'knocking':'adding'} ${p}% ${dir==='inc'?'off':'to'} £${after.toLocaleString('en-GB')} gives £${round(dir==='inc'?after*(1-p/100):after*(1+p/100),0).toLocaleString('en-GB')}. Undo a multiply with a divide: £${after.toLocaleString('en-GB')} ÷ ${f} = £${ans.toLocaleString('en-GB')}. Check: that × ${f} lands back on £${after.toLocaleString('en-GB')}.`};}
     if(k==='ppt'){const a=pick([8,10,15,20,25,30,35,40]);const b=a+pick([3,5,8,10,12]);
       return{cat:'pct',sub:k,prompt:`Market share moved from ${a}% to ${b}%. Change in percentage points?`,answer:b-a,unit:'ppt',method:`${b}% \u2212 ${a}% = ${b-a} percentage points \u2014 not the same as a ${round((b-a)/a*100,1)}% relative rise`,
         tip:`Percentage-point questions are plain subtraction of the two %s \u2014 resist the urge to divide, that's a different (relative %) question.`};}
@@ -455,7 +461,7 @@ const GEN={
     if(k==='offset'){const p=pick([5,10,15,20,25,50]);const dir=pick(['pricecut','volfall']);const ans=round((1/(1-p/100)-1)*100,1);
       const prompt=dir==='pricecut'?`Price is cut ${p}%. By what % must volume rise to keep revenue flat?`:`Volume falls ${p}%. By what % must price rise to hold revenue flat?`;
       return{cat:'pct',sub:k,prompt,answer:ans,unit:'%',tol:{rel:0.01,abs:0.3},method:`1 \u00f7 (1 \u2212 ${p}%) \u2212 1 = ${ans}% (a ${p}% drop needs a bigger % to offset)`,
-        tip:`The recovering % is always bigger than the original % \u2014 because it has to work off a smaller base. Never answer with the same number as the cut/fall.`};}
+        tip:`1 ÷ ${round(1-p/100,2)} = ${round(1/(1-p/100),3)} → ${ans}%. Pairs worth memorising: −20%→+25%, −25%→+33%, −50%→+100%.`};}
     if(k==='morethan'){let a=rnd(12,90)*10,b=rnd(12,90)*10;if(a===b)b+=10;const hi=Math.max(a,b),lo=Math.min(a,b);const dir=pick(['bigger','smaller']);
       if(dir==='bigger'){const ans=round((hi-lo)/lo*100,1);
         return{cat:'pct',sub:k,prompt:`\u00a3${hi}m vs \u00a3${lo}m. The larger is what % bigger than the smaller?`,answer:ans,unit:'%',tol:{rel:0.01,abs:0.2},method:`(${hi} \u2212 ${lo}) / ${lo} = ${ans}%`,
@@ -483,11 +489,11 @@ const GEN={
       }
       return{cat:'units',sub:k,prompt,answer:ans,unit:'\u00a3m',method,
         eq:{correct:`\u00a3${price} \u00d7 ${volM}m`,distractors:[`\u00a3${price} \u00f7 ${volM}m`,`${volM}m \u00f7 \u00a3${price}`,`\u00a3${price} + ${volM}m`]},
-        tip:`Round the price to the nearest whole pound, multiply, then adjust for the small rounding difference \u2014 faster than multiplying the decimal directly.`};}
+        tip:`Split the volume: ${Math.floor(volM)}m + ${round(volM-Math.floor(volM),1)}m → £${price*Math.floor(volM)}m + £${round(price*(volM-Math.floor(volM)),1)}m = £${ans}m.`};}
     if(k==='cpu'){const per=rnd(8,40,2);const volM=rnd(10,60,5)/10;const totalM=round(per*volM,2);
       return{cat:'units',sub:k,prompt:`Total cost \u00a3${totalM}m over ${volM}m units. Cost per unit? (\u00a3)`,answer:per,unit:'\u00a3',method:`\u00a3${totalM}m / ${volM}m = \u00a3${per}`,
         eq:{correct:`\u00a3${totalM}m \u00f7 ${volM}m`,distractors:[`${volM}m \u00f7 \u00a3${totalM}m`,`\u00a3${totalM}m \u00d7 ${volM}m`,`\u00a3${totalM}m \u2212 ${volM}m`]},
-        tip:`Scale both numbers up by the same factor to clear the decimal first (e.g. \u00d710) \u2014 the ratio \u00a3${totalM}m/${volM}m doesn't change, but the arithmetic gets easier.`};}
+        tip:`Try ${Math.round(volM)}m units: £${totalM}m ÷ ${Math.round(volM)} = £${round(totalM/Math.round(volM),1)}. The real denominator is ${volM<Math.round(volM)?'smaller, so the true answer is a bit higher':volM>Math.round(volM)?'bigger, so the true answer is a bit lower':'exact'} → £${per}.`};}
     if(k==='cancel'){const ratio=pick([1500,2000,2500,3000,4000,5000]);const denomM=pick([1.2,1.5,2,2.5,4]);const numBn=round(ratio*denomM/1000,3);
       return{cat:'units',sub:k,prompt:`\u00a3${numBn}bn divided by \u00a3${denomM}m equals?`,answer:ratio,unit:'',method:`\u00a3${numBn}bn / \u00a3${denomM}m = ${ratio.toLocaleString('en-GB')}`,
         tip:`Convert both to the same unit first (\u00a3m) \u2014 \u00a3${numBn}bn = \u00a3${round(numBn*1000,1)}m \u2014 then it's a plain division, no unit-juggling mid-calculation.`};}
@@ -519,10 +525,10 @@ const GEN={
         tip:`Estimate total growth first (${gbp(end)}/${gbp(start)} \u2248 ${round(end/start,2)}\u00d7), then spread that across ${yrs} years \u2014 a rough per-year rate is usually close enough without the exact root.`};}
     if(k==='rule72fwd'){const r=pick([2,3,4,6,8,9,12,18,24]);const ans=round(72/r,1);
       return{cat:'cagr',sub:k,prompt:`Rule of 72: growing at ${r}%/yr, roughly how many years to double?`,answer:ans,unit:'yrs',tol:{rel:0.05,abs:0.5},method:`72 / ${r} \u2248 ${ans} years`,
-        tip:`It's just 72 \u00f7 rate \u2014 no compounding required, that's the whole point of the rule.`};}
+        tip:`72 ÷ ${r} = ${ans}. The 72 table is worth memorising: 6%→12yrs, 8%→9, 9%→8, 12%→6.`};}
     if(k==='rule72rev'){const y=pick([2,3,4,6,8,9,12]);const ans=round(72/y,1);
       return{cat:'cagr',sub:k,prompt:`Rule of 72: to double in about ${y} years, roughly what annual growth rate is needed?`,answer:ans,unit:'%',tol:{rel:0.05,abs:0.5},method:`72 / ${y} \u2248 ${ans}%`,
-        tip:`Flip it around: 72 \u00f7 years instead of 72 \u00f7 rate \u2014 same rule, same division either direction.`};}
+        tip:`72 ÷ ${y} = ${ans}%. Same table backwards: doubling in 6yrs needs 12%, in 9yrs needs 8%.`};}
     const start=rnd(50,200,10);const r1=pick([5,8,10,12,15,20]),r2=pick([5,8,10,12,15,20]);const ans=round(start*(1+r1/100)*(1+r2/100),2);
     return{cat:'cagr',sub:k,prompt:`\u00a3${start}m grows ${r1}% in year 1, then ${r2}% in year 2. Value after year 2? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.02,abs:0},method:`${start} \u00d7 ${1+r1/100} \u00d7 ${1+r2/100} \u2248 \u00a3${ans}m`,
       tip:`Same trick as successive percentage changes: multiply the two yearly multipliers together first (${1+r1/100} \u00d7 ${1+r2/100} = ${round((1+r1/100)*(1+r2/100),4)}), then apply once.`};},
@@ -536,13 +542,13 @@ const GEN={
       if(kind==='total'){
         const ans=round(vals.reduce((a,b)=>a+b,0),1);
         return{cat:'sizing',sub:t,prompt:`Chart shows revenue by region (£m). Total market size? (£m)`,answer:ans,unit:'£m',tol:{rel:0.02,abs:0},method:`${vals.join(' + ')} = £${ans}m`,
-          tip:`Group easy pairs before adding the rest so the running total stays simple, rather than adding left-to-right in one long chain.`,
+          tip:`Start ${vals[0]}+${vals[1]}=${vals[0]+vals[1]}, then add ${vals.slice(2).join(', then ')} → £${ans}m. One running total — don't re-scan the chart.`,
           chart:{type:'bars',data:labels.map((l,i)=>({label:l,value:vals[i]}))}};
       }
       const total=vals.reduce((a,b)=>a+b,0);const maxV=Math.max(...vals);const maxLabel=labels[vals.indexOf(maxV)];
       const ans=round(maxV/total*100,1);
       return{cat:'sizing',sub:t,prompt:`Chart shows revenue by region (£m). What % of the total does ${maxLabel} represent?`,answer:ans,unit:'%',tol:{rel:0.02,abs:0.3},method:`£${maxV}m / £${round(total,1)}m = ${ans}%`,
-        tip:`Sum all the bars once for the total, then it's one bar ÷ that total — don't re-add subsets per answer choice.`,
+        tip:`Total is ${round(total,0)}. 10% of that is ${round(total/10,1)}; the ${maxLabel} bar (${maxV}) is ${round(maxV/(total/10),1)}× it → ${ans}%.`,
         chart:{type:'bars',data:labels.map((l,i)=>({label:l,value:vals[i]}))}};
     }
     if(t==='consumer'){const popM=pick([50,55,60,67]);const pen=pick([20,25,30,40,50]);const freq=pick([1,2,3,4]);const price=rnd(5,30,1);const ans=round(popM*(pen/100)*freq*price,1);
@@ -558,7 +564,7 @@ const GEN={
         tip:`Do population \u00d7 penetration first (gives buyers, ${round(popM*pen/100,2)}m), then \u00d7 frequency \u00d7 price \u2014 chain it in that order so each step stays a clean number.`};}
     if(t==='b2b'){const firms=rnd(20,120,10)*1000;const adopt=pick([5,10,15,20]);const spend=rnd(2,20,1)*1000;const ans=round(firms*(adopt/100)*spend/1e6,1);
       return{cat:'sizing',sub:t,prompt:`${firms.toLocaleString('en-GB')} firms, ${adopt}% adopt, \u00a3${spend.toLocaleString('en-GB')}/yr each. Market? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`${firms.toLocaleString('en-GB')} \u00d7 ${adopt}% \u00d7 \u00a3${spend.toLocaleString('en-GB')} \u2248 \u00a3${ans}m`,
-        tip:`Convert both big numbers to thousands first so you're multiplying small figures, not tracking every zero.`};}
+        tip:`${firms/1000}k firms × £${spend/1000}k each = £${(firms/1000)*(spend/1000)}m if every firm bought; take ${adopt}% → £${ans}m.`};}
     if(t==='replace'){const units=rnd(20,80,5);const life=pick([4,5,8,10]);const price=rnd(20,120,10);const ans=round(units/life*price,1);
       return{cat:'sizing',sub:t,prompt:`${units}m units installed, ${life}-yr life, \u00a3${price} each. Annual replacement market? (\u00a3m)`,answer:ans,unit:'\u00a3m',tol:{rel:0.05,abs:0},method:`${units}m / ${life} \u00d7 \u00a3${price} \u2248 \u00a3${ans}m`,
         tip:`Divide first (units \u00f7 life = replacements/year, ${round(units/life,2)}m), then multiply by price \u2014 dividing before multiplying keeps the numbers smaller.`};}
@@ -577,16 +583,16 @@ const GEN={
       const ans=profits.reduce((a,b)=>a+b,0);
       const rows=names.map((nm,i)=>[nm,`£${revs[i]}m`,`£${costs[i]}m`]);
       return{cat:'profit',sub:k,prompt:`Table shows revenue and cost by product line (£m). Total operating profit? (£m)`,answer:ans,unit:'£m',method:`${profits.map((p,i)=>`£${revs[i]}m−£${costs[i]}m`).join(' + ')} = £${ans}m`,
-        tip:`Sum the whole Revenue column and the whole Cost column separately first, then subtract once — faster than subtracting row-by-row and adding those.`,
+        tip:`Revenue column: ${revs.join('+')} = ${revs.reduce((a,b)=>a+b,0)}. Cost column: ${costs.join('+')} = ${costs.reduce((a,b)=>a+b,0)}. One subtraction: £${ans}m.`,
         chart:{type:'table',cols:['Product','Revenue','Cost'],rows}};
     }
     if(k==='contribution'){const price=rnd(20,80,5);const vc=rnd(8,price-5,1);
       return{cat:'profit',sub:k,prompt:`Price \u00a3${price}, variable cost \u00a3${vc}. Contribution per unit? (\u00a3)`,answer:price-vc,unit:'\u00a3',method:`\u00a3${price} \u2212 \u00a3${vc} = \u00a3${price-vc}`,
-        tip:`Straight subtraction, price minus variable cost \u2014 no shortcut needed, just make sure it's not the other way round.`};}
+        tip:`Round the cost up to £${Math.ceil(vc/10)*10}: £${price} − £${Math.ceil(vc/10)*10} = £${price-Math.ceil(vc/10)*10}, then give back £${Math.ceil(vc/10)*10-vc} → £${price-vc}.`};}
     if(k==='breakeven'){const cont=rnd(5,40,5);const fixedK=rnd(20,200,20);const ans=round(fixedK*1000/cont,0);
       return{cat:'profit',sub:k,prompt:`Fixed cost \u00a3${fixedK}k, contribution \u00a3${cont}/unit. Breakeven units?`,answer:ans,unit:'units',method:`\u00a3${fixedK}k / \u00a3${cont} = ${ans.toLocaleString('en-GB')} units`,
         eq:{correct:`\u00a3${fixedK}k \u00f7 \u00a3${cont}`,distractors:[`\u00a3${cont} \u00f7 \u00a3${fixedK}k`,`\u00a3${fixedK}k \u00d7 \u00a3${cont}`,`\u00a3${fixedK}k \u2212 \u00a3${cont}`]},
-        tip:`Convert fixed cost to whole pounds first (\u00a3${(fixedK*1000).toLocaleString('en-GB')}) so both numbers are in the same unit before dividing.`};}
+        tip:`Same units first: £${fixedK}k = £${(fixedK*1000).toLocaleString('en-GB')}. Then think small: ${fixedK} ÷ ${cont} = ${round(fixedK/cont,2)}, ×1,000 → ${ans.toLocaleString('en-GB')} units.`};}
     if(k==='bridge'){const rev=rnd(50,200,10);const cogs=rnd(20,rev-20,5);const opex=rnd(5,rev-cogs-5,5);const ans=rev-cogs-opex;
       let prompt=`Revenue \u00a3${rev}m, COGS \u00a3${cogs}m, opex \u00a3${opex}m. Operating profit? (\u00a3m)`;
       let method=`${rev} \u2212 ${cogs} \u2212 ${opex} = \u00a3${ans}m`;
@@ -608,7 +614,7 @@ const GEN={
     if(k==='payback'){const inv=rnd(20,120,5);const cf=pick([4,5,8,10,12,15]);const ans=round(inv/cf,2);
       return{cat:'roi',sub:k,prompt:`Invest £${inv}m upfront, £${cf}m cash flow per year. Payback period? (years)`,answer:ans,unit:'yrs',tol:{rel:0.02,abs:0.05},method:`£${inv}m ÷ £${cf}m = ${ans} years`,
         eq:{correct:`£${inv}m ÷ £${cf}m`,distractors:[`£${cf}m ÷ £${inv}m`,`£${inv}m × £${cf}m`,`£${inv}m − £${cf}m`]},
-        tip:`Round both to convenient numbers before dividing — e.g. nearest 5 or 10 — then adjust slightly for the difference.`};}
+        tip:`£${cf}m × ${Math.floor(inv/cf)} = £${cf*Math.floor(inv/cf)}m${inv-cf*Math.floor(inv/cf)>0?', leaving £'+round(inv-cf*Math.floor(inv/cf),1)+'m → +'+round((inv-cf*Math.floor(inv/cf))/cf,2)+' of a year':''} → ${ans} years.`};}
     if(k==='roi'){const inv=rnd(20,100,5)*10;const gain=pick([15,20,25,30,40,50,60,75,100]);const ret=round(inv*(1+gain/100),0);
       return{cat:'roi',sub:k,prompt:`Invest £${inv.toLocaleString('en-GB')}k, total return £${ret.toLocaleString('en-GB')}k. ROI %?`,answer:gain,unit:'%',tol:{rel:0.02,abs:0.5},method:`(${ret.toLocaleString('en-GB')} − ${inv.toLocaleString('en-GB')}) / ${inv.toLocaleString('en-GB')} = ${gain}%`,
         eq:{correct:`(return − invested) ÷ invested`,distractors:[`return ÷ invested`,`invested ÷ return`,`(return − invested) ÷ return`]},
@@ -616,10 +622,10 @@ const GEN={
     if(k==='multiple'){const inv=rnd(20,100,5);const mult=pick([1.5,2,2.5,3,4,5]);const ret=round(inv*mult,1);
       return{cat:'roi',sub:k,prompt:`£${ret}m returned on £${inv}m invested. Money multiple? (×)`,answer:mult,unit:'x',tol:{rel:0.02,abs:0.05},method:`£${ret}m ÷ £${inv}m = ${mult}×`,
         eq:{correct:`£${ret}m ÷ £${inv}m`,distractors:[`£${inv}m ÷ £${ret}m`,`£${ret}m − £${inv}m`,`£${ret}m × £${inv}m`]},
-        tip:`Money multiple is simpler than ROI — just return ÷ invested, no subtraction step at all.`};}
+        tip:`Count in £${inv}m steps: ×2 = £${inv*2}m${mult>=3?', ×3 = £'+(inv*3)+'m':''}… ×${mult} = £${ret}m → ${mult}×.`};}
     const ann=rnd(20,200,5);const ans=round(ann*1000/365,1);
     return{cat:'roi',sub:k,prompt:`£${ann}m annual revenue spread evenly over 365 days. Revenue per day? (£k)`,answer:ans,unit:'£k',tol:{rel:0.02,abs:0.5},method:`£${ann}m ÷ 365 = £${ans}k/day`,
-      tip:`÷365 ≈ ÷360 (then nudge down slightly) or split it as ÷52 weeks ÷7 days — either route beats long division by 365 directly.`};},
+      tip:`÷360 is friendlier: £${ann}m ÷ 360 ≈ £${round(ann/360*1000,0)}k, shave ~1.5% → £${ans}k. (Or ÷52 first: £${round(ann/52,2)}m/week, then ÷7.)`};},
   val(difficulty){const lvl=D(difficulty);
     const pool = lvl===0 ? ['perp','ltv'] : lvl===1 ? ['perp','ltv','cacpb','util','invdays'] : ['perp','ltv','cacpb','util','invdays','growperp','elasticity','bevol'];
     const k=pick(pool);
@@ -775,9 +781,12 @@ const norm=p=>p.replace(/[0-9.,]+/g,'#');
 function makeQuestion(cat, avoid){
   let q=buildStages(cat, cfg.difficulty);
   if(avoid){
-    for(let i=0;i<6;i++){
-      const key=cat+'.'+q.sub, pk=norm(q.stages[q.stages.length-1].prompt);
-      if(!avoid.subs.includes(key) && !avoid.prompts.includes(pk)) break;
+    for(let i=0;i<8;i++){
+      const last=q.stages[q.stages.length-1];
+      const key=cat+'.'+q.sub, pk=norm(last.prompt);
+      const ansDup=!!(avoid.answers&&last.kind==='numeric'&&avoid.answers.includes(last.answer));
+      const tipDup=!!(avoid.tips&&last.tip&&avoid.tips.includes(last.tip));
+      if(!avoid.subs.includes(key) && !avoid.prompts.includes(pk) && !ansDup && !tipDup) break;
       q=buildStages(cat, cfg.difficulty);
     }
   }
@@ -793,6 +802,7 @@ function isCorrect(answer,given,tol,mult){
 const defaults={mode:'timed',seconds:10,len:20,strict:1,difficulty:'standard',weakMode:false,cats:Object.keys(CATS)};
 let cfg=Object.assign({},defaults,store.get(S_SETTINGS,{}));
 cfg.cats=cfg.cats.filter(c=>CATS[c]); if(!cfg.cats.length)cfg.cats=Object.keys(CATS);
+if(![10,20,0].includes(cfg.len))cfg.len=20;
 /* auto-enable brand-new categories added since the user last opened the app, without
    re-enabling any they deliberately turned off. Legacy users (no `known`) are seeded with
    the pre-Returns set so only genuinely-new categories get switched on. */
@@ -893,7 +903,7 @@ window.addEventListener('keydown',e=>{
   if(!document.getElementById('screen-drill').classList.contains('active'))return;
   if(!session)return;
   const st=currentStage();
-  if(session.locked){ if(e.key==='Enter')advance(); return; }
+  if(session.locked){ if(e.key==='Enter')advance(); else if(e.key==='ArrowLeft')prevNav(); return; }
   if(st.kind==='mcq'){
     if(e.key>='1'&&e.key<='9'){ const idx=+e.key-1; if(idx<st.options.length) chooseOption(idx); }
     return;
@@ -912,7 +922,7 @@ function renderEntry(){
 }
 
 function startSession(){
-  session={mode:cfg.mode,len:cfg.len,strict:cfg.strict,i:0,correct:0,streak:0,bestStreak:0,attempts:[],misses:[],pool:cfg.cats.slice(),recentSubs:[],recentPrompts:[]};
+  session={mode:cfg.mode,len:cfg.len,strict:cfg.strict,i:0,correct:0,streak:0,bestStreak:0,attempts:[],misses:[],pool:cfg.cats.slice(),recentSubs:[],recentPrompts:[],recentAnswers:[],recentTips:[],history:[],reviewIdx:null};
   if(cfg.weakMode){
     session.weakSubs=weakSubsFromHistory();
     if(session.weakSubs.length){
@@ -930,19 +940,24 @@ function renderStreak(){
 }
 function nextQuestion(){
   const cat=pick(session.pool);
-  let q=makeQuestion(cat,{subs:session.recentSubs,prompts:session.recentPrompts});
+  const avoid={subs:session.recentSubs,prompts:session.recentPrompts,answers:session.recentAnswers,tips:session.recentTips};
+  let q=makeQuestion(cat,avoid);
   if(session.weakSubs&&session.weakSubs.length){
     for(let i=0;i<8 && !session.weakSubs.includes(q.cat+'.'+q.sub);i++)
-      q=makeQuestion(pick(session.pool),{subs:[],prompts:session.recentPrompts});
+      q=makeQuestion(pick(session.pool),{subs:[],prompts:session.recentPrompts,answers:session.recentAnswers,tips:session.recentTips});
   }
   session.q=q;
+  const last=q.stages[q.stages.length-1];
   session.recentSubs.push(q.cat+'.'+q.sub); if(session.recentSubs.length>4)session.recentSubs.shift();
-  session.recentPrompts.push(norm(q.stages[q.stages.length-1].prompt)); if(session.recentPrompts.length>10)session.recentPrompts.shift();
+  session.recentPrompts.push(norm(last.prompt)); if(session.recentPrompts.length>10)session.recentPrompts.shift();
+  if(last.kind==='numeric'){session.recentAnswers.push(last.answer); if(session.recentAnswers.length>8)session.recentAnswers.shift();}
+  if(last.tip){session.recentTips.push(last.tip); if(session.recentTips.length>8)session.recentTips.shift();}
   session.stageIdx=0;
   loadStage();
 }
 function loadStage(){
-  session.locked=false;entry='';session.selectedIdx=-1;
+  session.locked=false;entry='';session.selectedIdx=-1;session.reviewIdx=null;
+  document.getElementById('prev-btn').classList.remove('show');
   document.getElementById('feedback').classList.remove('show');
   document.getElementById('next-btn').classList.remove('show');
   document.getElementById('tipcard').classList.remove('show');
@@ -1095,19 +1110,25 @@ function recordAndShow(ok,reason,wouldBe){
   if(!ok){
     session.misses.push({prompt:st.prompt,given:givenStr,correct:ansStr,tip:st.tip||'',cat:session.q.cat,sub:st.sub});
   }
+  let tipFull=st.tip||'';
+  if(tipFull && ANCHOR_SUBS.has(session.q.cat+'.'+st.sub)) tipFull+='\n\n'+ANCHORS;
   const tipcard=document.getElementById('tipcard');
-  if(st.tip){
+  if(tipFull){
     tipcard.classList.add('show');
     tipcard.querySelector('.tipcard-front').textContent = ok ? '\ud83d\udca1 Right \u2014 but see the faster route?' : '\ud83d\udca1 Tap for a shortcut';
     document.getElementById('tipcardInner').classList.remove('flipped');
-    let tt=st.tip;
-    if(ANCHOR_SUBS.has(session.q.cat+'.'+st.sub)) tt+='\n\n'+ANCHORS;
-    document.getElementById('tipcardBack').textContent=tt;
+    document.getElementById('tipcardBack').textContent=tipFull;
   } else {
     tipcard.classList.remove('show');
   }
   fb.classList.add('show');
   document.getElementById('next-btn').classList.add('show');
+  // snapshot for back-navigation
+  const view={kind:st.kind,catLabel:document.getElementById('qcat').textContent,prompt:st.prompt,chart:st.chart,ok,
+    verdict:v.textContent,ansStr,methodStr,tip:tipFull,given:givenStr,options:st.options,correctIdx:st.correctIdx,selectedIdx:session.selectedIdx};
+  session.liveView=view;
+  session.history.push(view);
+  updatePrevBtn();
   if(session.mode==='timed'){ringEl.style.strokeDashoffset=ok?0:C;document.getElementById('clock').innerHTML=ok?'\u2713':'\u2014';}
 }
 function formatAnswer(q){
@@ -1124,7 +1145,74 @@ function formatAnswer(q){
   if(q.unit==='units')return a.toLocaleString('en-GB')+' units';
   return a.toLocaleString('en-GB');
 }
+function applyView(v,review){
+  document.getElementById('streak').style.display=review?'none':'';
+  if(!review)renderStreak();
+  document.getElementById('qcat').textContent=(review?'\u2039 ':'')+v.catLabel;
+  document.getElementById('prompt').textContent=v.prompt;
+  document.getElementById('ringwrap').classList.toggle('compact', !!v.chart);
+  renderExhibit(document.getElementById('exhibit'), v.chart);
+  const vd=document.getElementById('verdict');
+  vd.className='verdict '+(v.ok?'ok':'bad'); vd.textContent=v.verdict;
+  document.getElementById('correctval').textContent=v.ansStr;
+  document.getElementById('method').textContent=v.methodStr;
+  const tipcard=document.getElementById('tipcard');
+  if(v.tip){
+    tipcard.classList.add('show');
+    tipcard.querySelector('.tipcard-front').textContent = v.ok ? '\ud83d\udca1 Right \u2014 but see the faster route?' : '\ud83d\udca1 Tap for a shortcut';
+    document.getElementById('tipcardInner').classList.remove('flipped');
+    document.getElementById('tipcardBack').textContent=v.tip;
+  } else tipcard.classList.remove('show');
+  const answerline=document.getElementById('answerline');
+  document.getElementById('unit-hint').style.display='none';
+  document.getElementById('numeric-input').style.display='none';
+  const mcqInput=document.getElementById('mcq-input');
+  if(v.kind==='numeric'){
+    mcqInput.style.display='none';
+    answerline.style.display='';
+    answerline.classList.toggle('empty', v.given==='\u2014');
+    answerline.textContent=v.given;
+  } else {
+    answerline.style.display='none';
+    mcqInput.style.display='';
+    const wrap=document.getElementById('mcq-options');wrap.innerHTML='';
+    (v.options||[]).forEach((opt,i)=>{const b=document.createElement('button');b.className='mcq-opt';b.setAttribute('disabled','');
+      if(i===v.correctIdx)b.classList.add('correct'); else if(i===v.selectedIdx)b.classList.add('wrong');
+      b.innerHTML=`<span class="k">${String.fromCharCode(65+i)}</span><span>${opt}</span>`;wrap.appendChild(b);});
+  }
+  document.getElementById('feedback').classList.add('show');
+  document.getElementById('next-btn').classList.add('show');
+  updatePrevBtn();
+}
+function updatePrevBtn(){
+  const canBack = session && session.locked &&
+    ((session.reviewIdx===null && session.history.length>1) || (session.reviewIdx!==null && session.reviewIdx>0));
+  document.getElementById('prev-btn').classList.toggle('show', !!canBack);
+}
+function prevNav(){
+  if(!session||!session.locked)return;
+  const h=session.history;
+  if(session.reviewIdx===null){ if(h.length<2)return; session.reviewIdx=h.length-2; }
+  else if(session.reviewIdx>0){ session.reviewIdx--; }
+  else return;
+  document.getElementById('progress').textContent=`review ${session.reviewIdx+1}/${h.length}`;
+  applyView(h[session.reviewIdx],true);
+}
 function advance(){
+  if(session.reviewIdx!==null){
+    session.reviewIdx++;
+    if(session.reviewIdx>=session.history.length-1){
+      session.reviewIdx=null;
+      const total=session.len===0?'\u221e':session.len;
+      document.getElementById('progress').textContent=`${session.i+1} / ${total}`;
+      applyView(session.liveView,false);
+    }
+    else{
+      document.getElementById('progress').textContent=`review ${session.reviewIdx+1}/${session.history.length}`;
+      applyView(session.history[session.reviewIdx],true);
+    }
+    return;
+  }
   if(session.stageIdx+1 < session.q.stages.length){
     session.stageIdx++;
     loadStage();
@@ -1149,6 +1237,7 @@ document.getElementById('home-btn').onclick=()=>show('screen-home');
 document.getElementById('to-stats').onclick=()=>{renderResults(true);show('screen-results');};
 document.getElementById('submit-btn').onclick=submit;
 document.getElementById('next-btn').onclick=advance;
+document.getElementById('prev-btn').onclick=prevNav;
 document.getElementById('end-btn').onclick=endSession;
 document.getElementById('end-btn-mcq').onclick=endSession;
 document.getElementById('tipcardInner').onclick=()=>document.getElementById('tipcardInner').classList.toggle('flipped');
