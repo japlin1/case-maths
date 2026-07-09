@@ -236,6 +236,7 @@ button{font-family:inherit; color:inherit; cursor:pointer; border:none; backgrou
 
       <button class="primary" id="start-btn">Start drill</button>
       <div style="text-align:center"><button class="linkbtn" id="to-stats">View stats</button></div>
+      <div class="tiny" id="build-tag"></div>
     </div>
   </section>
 
@@ -1335,8 +1336,18 @@ function renderResults(statsOnly){
 }
 
 /* ---------- service worker ---------- */
+const APP_V='v10';
+document.getElementById('build-tag').textContent='build '+APP_V;
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js').catch(()=>{});});
+  window.addEventListener('load',()=>{
+    const hadController=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('./sw.js').then(reg=>{reg.update().catch(()=>{});}).catch(()=>{});
+    let reloaded=false;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      if(!hadController||reloaded)return; /* first-ever install: no reload needed */
+      reloaded=true; location.reload();   /* a new version took over: show it now */
+    });
+  });
 }
 </script>
 </body>
